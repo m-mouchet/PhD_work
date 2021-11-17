@@ -55,12 +55,12 @@ def ExtractSlice(stack, num):
 #out_proj_file = sys.argv[3]
 #out_geometry_file = sys.argv[4]
 
-proj = itk.imread("/home/mmouchet/Documents/SIEMENSDATA/GO.SIM/3D_patients/BN1/donneesBrutes/inspi_bloquee/corrected_proj.mha")
+proj = itk.imread("")
 proj_array = itk.GetArrayFromImage(proj)
-geometry = ReadGeometry("/home/mmouchet/Documents/SIEMENSDATA/GO.SIM/3D_patients/BN1/donneesBrutes/inspi_bloquee/geometry.xml")
+geometry = ReadGeometry("")
 step = 8
-out_proj_file = "/home/mmouchet/Documents/SIEMENSDATA/GO.SIM/3D_patients/BN1/donneesBrutes/inspi_bloquee/sub_corrected_proj.mha"
-out_geometry_file = "/home/mmouchet/Documents/SIEMENSDATA/GO.SIM/3D_patients/BN1/donneesBrutes/inspi_bloquee/sub_geometry.xml"
+out_proj_file = ""
+out_geometry_file = ""
 
 n_rotation = len(np.where(np.abs(np.array(geometry.GetGantryAngles())-geometry.GetGantryAngles()[0]) <= 10**(-10))[0])
 n_proj = len(geometry.GetGantryAngles())
