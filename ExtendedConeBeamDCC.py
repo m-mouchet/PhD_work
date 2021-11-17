@@ -35,12 +35,12 @@ def Difference(m0, m1):
 
 
 def ComputeDCCsForOnePair(idx0, idx1, geometry_array, source_pos_array, rotation_matrices_array, fixed_matrices_array, proj_array, proj_infos):
-    if idx0 == idx1:
-        return [np.array([0.]) ,np.array([0.]), np.array([1.]), np.array([1.])]
+    pair = ProjectionsPair(idx0, idx1, geometry_array, source_pos_array, rotation_matrices_array, fixed_matrices_array, proj_array, proj_infos)
+    pair.ComputePairMoments()
+    if len(pair.m0) == 0 and len(pair.m1) == 0:
+        return 0
     else:
-        pair = ProjectionsPair(idx0, idx1, geometry_array, source_pos_array, rotation_matrices_array, fixed_matrices_array, proj_array, proj_infos)
-        pair.ComputePairMoments()
-        return [pair.m0, pair.m1, pair.norm0, pair.norm1]
+        return Difference(pair.m0, pair.m1)
 
 
 class ProjectionsPair():
@@ -177,12 +177,9 @@ class ProjectionsPair():
         self.ComputeCylindricalDetectorsAndFanAngles()
         self.ComputeMPoints()
         self.ComputeEpipolarPlanes()
-        
+
         if len(self.m_points_accepted) == 0:
-            self.m0 = np.array([0.])
-            self.m1 = np.array([0.])
-            self.norm0 = np.array([1.])
-            self.norm1 = np.array([1.])
+            self.m0, self.m1 = [], []
         else:
             self.proj_interp0 = np.zeros((self.Det0.shape[0], self.en0.shape[0]))
             self.proj_interp1 = np.zeros((self.Det1.shape[0], self.en1.shape[0]))
@@ -202,8 +199,8 @@ class ProjectionsPair():
             self.gamma_s1 = np.arctan(-self.eb1[0]/self.eb1[2])
 
             for j in range(self.m0.shape[0]):
-                self.m0[j], self.norm0[j] = DefriseIntegrationHilbertKernel(self.gamma_s0, self.gamma, self.proj_interp0[:, j], self.v0[:, j], self.eb0, self.sdd, "Hann", 20)
-                self.m1[j], self.norm1[j] = DefriseIntegrationHilbertKernel(self.gamma_s1, self.gamma, self.proj_interp1[:, j], self.v1[:, j], self.eb1, self.sdd, "Hann", 20)
+                self.m0[j], self.norm0[j] = DefriseIntegrationHilbertKernel(self.gamma_s0, self.gamma, self.proj_interp0[:, j], self.v0[:, j], self.eb0, self.sdd, "Hann", 50)
+                self.m1[j], self.norm1[j] = DefriseIntegrationHilbertKernel(self.gamma_s1, self.gamma, self.proj_interp1[:, j], self.v1[:, j], self.eb1, self.sdd, "Hann", 50)
     
     def PlotPairMoments(self):
         plt.figure()
@@ -235,17 +232,19 @@ class ProjectionsPair():
         plt.ylabel("y_rtk")
         # plt.axis("equal")
         plt.subplot(223)
+        plt.imshow(self.p0, cmap = "gray", extent=(self.gamma[0], self.gamma[-1], self.v_det[0], self.v_det[-1]), aspect='auto')
         plt.plot(self.gamma, self.v_det[0]*np.ones(len(self.gamma)), color='indigo')
         plt.plot(self.gamma, self.v_det[-1]*np.ones(len(self.gamma)), color='indigo')
         plt.plot(self.gamma[0]*np.ones(len(self.v_det)), self.v_det, color='indigo')
         plt.plot(self.gamma[-1]*np.ones(len(self.v_det)), self.v_det, color='indigo')
         for j in range(self.v0.shape[1]):
-            plt.plot(self.gamma, self.v0[:, j], 'k', linewidth=0.5)
+            plt.plot(self.gamma, self.v0[:, j], 'r', linewidth=0.5)
         plt.subplot(224)
+        plt.imshow(self.p1, cmap = "gray", extent=(self.gamma[0], self.gamma[-1], self.v_det[0], self.v_det[-1]), aspect='auto')
         plt.plot(self.gamma, self.v_det[0]*np.ones(len(self.gamma)), color='darkorange')
         plt.plot(self.gamma, self.v_det[-1]*np.ones(len(self.gamma)), color='darkorange')
         plt.plot(self.gamma[0]*np.ones(len(self.v_det)), self.v_det, color='darkorange')
         plt.plot(self.gamma[-1]*np.ones(len(self.v_det)), self.v_det, color='darkorange')
         for j in range(self.v1.shape[1]):
-            plt.plot(self.gamma, self.v1[:, j], 'k', linewidth=0.5)
+            plt.plot(self.gamma, self.v1[:, j], 'r', linewidth=0.5)
         plt.show()

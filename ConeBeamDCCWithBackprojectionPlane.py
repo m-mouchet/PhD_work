@@ -128,20 +128,16 @@ def ComputeDCCsBPForOnePair(idx0, idx1, geometry, projection):
 
 
 class ProjectionsPairBP():
-    def __init__(self, idx0, idx1, geometry, projections):
+    def __init__(self, idx0, idx1, g0, g1, p0, p1):
         self.idx0 = idx0
-        self.g0 = rtk.ThreeDCircularProjectionGeometry.New()
-        self.sid0, self.sdd0, self.ga0, self.dx0, self.dy0, self.oa0, self.ia0, self.sx0, self.sy0, self.R0 = RecupParam(geometry, self.idx0)
-        self.g0.SetRadiusCylindricalDetector(self.R0)
-        self.g0.AddProjectionInRadians(self.sid0, self.sdd0, self.ga0, self.dx0, self.dy0, self.oa0, self.ia0, self.sx0, self.sy0)
-        self.p0 = ExtractSlice(projections, idx0)
+        self.g0 = g0
+        self.sid0, self.sdd0, self.ga0, self.dx0, self.dy0, self.oa0, self.ia0, self.sx0, self.sy0, self.R0 = RecupParam(g0, 0)
+        self.p0 = p0
 
         self.idx1 = idx1
-        self.g1 = rtk.ThreeDCircularProjectionGeometry.New()
-        self.sid1, self.sdd1, self.ga1, self.dx1, self.dy1, self.oa1, self.ia1, self.sx1, self.sy1, self.R1 = RecupParam(geometry, self.idx1)
-        self.g1.SetRadiusCylindricalDetector(self.R1)
-        self.g1.AddProjectionInRadians(self.sid1, self.sdd1, self.ga1, self.dx1, self.dy1, self.oa1, self.ia1, self.sx1, self.sy1)
-        self.p1 = ExtractSlice(projections, idx1)
+        self.g1 = g1
+        self.sid1, self.sdd1, self.ga1, self.dx1, self.dy1, self.oa1, self.ia1, self.sx1, self.sy1, self.R1 = RecupParam(g1, 0)
+        self.p1 = p1
 
     def LinesMomentsCorners(self):
         self.s0, self.s1 = ExtractSourcePosition(self.g0, self.g1)
@@ -165,14 +161,14 @@ class ProjectionsPairBP():
         matProd = directionProj * matId != directionProj
         if (np.sum(matProd)!=0):
             print("la matrice a %f element(s) non diagonal(aux)" %(np.sum(matProd)))
-        else : 
+        else:
             size = []
-            for i in range (len(self.p0.GetOrigin())):
+            for i in range(len(self.p0.GetOrigin())):
                 size.append(self.p0.GetSpacing()[i]*(self.p0.GetLargestPossibleRegion().GetSize()[i]-1)*directionProj[i, i])
         # Compute BP plane corners
         self.corners = None
         self.projIdxToCoord0, self.projIdxToCoord1 = ExtractProjCoorToFixedSysMatrice(self.g0, self.g1)
-        invMag_List=[]
+        invMag_List = []
         for j in self.p0.GetOrigin()[1], self.p0.GetOrigin()[1]+size[1]:
             for i in self.p0.GetOrigin()[0], self.p0.GetOrigin()[0]+size[0]:            
                 if self.R0 == 0: # flat detector

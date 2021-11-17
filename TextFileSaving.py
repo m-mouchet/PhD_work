@@ -1,6 +1,7 @@
 import csv
 
-def WriteMomentsFile(FileName,res, N):
+
+def WriteMomentsFile(FileName, res, N):
     with open(FileName, 'w') as csvfile:
         fieldnames = ['m0','m1','n0','n1']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
