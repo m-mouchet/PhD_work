@@ -312,6 +312,10 @@ def CoeffShannonInterpolationHann(x_j, x_i, W):
     x = (x_j-x_i)
     return (1-np.cos(np.pi*x*2*W))/(2*x) + (1+np.cos(2*W*np.pi*x))*(1/(x+1/(2*W)) + 1/(x-1/(2*W)))/4
 
+def CoeffShannonInterpolationHamming(x_j, x_i, W, a, b):
+    x = (x_j-x_i)
+    return a*(1-np.cos(np.pi*x*2*W))/(np.pi*x) + b*(1+np.cos(2*W*np.pi*x))*(1/(x+1/(2*W)) + 1/(x-1/(2*W)))/(4)
+
 def CoeffShannonInterpolationBlackmann(x_j, x_i, W):
     x = (x_j-x_i)
     I1 = 0.42*(1-np.cos(2*np.pi*W*x))/x
@@ -319,12 +323,12 @@ def CoeffShannonInterpolationBlackmann(x_j, x_i, W):
     I3 = 0.04*(1-np.cos(2*np.pi*W*x))*(1/(x+1/W) + 1/(x-1/W))
     return  I1 + I2 + I3
 
-from scipy import special
+# from scipy import special
 
-def CoeffShannonInterpolationGauss(x_j, x_i, W):
-    x = (x_j-x_i)
-    I= 0.5*np.sqrt(np.pi/W)*np.exp(-(np.pi*x)**2/W)*(special.erfi((np.pi*x-1j*W**2)/np.sqrt(W))+special.erfi((np.pi*x+1j*W**2)/np.sqrt(W))-2*special.erfi(np.pi*x/np.sqrt(W)))
-    return -np.pi*I.real
+# def CoeffShannonInterpolationGauss(x_j, x_i, W):
+#     x = (x_j-x_i)
+#     I= 0.5*np.sqrt(np.pi/W)*np.exp(-(np.pi*x)**2/W)*(special.erfi((np.pi*x-1j*W**2)/np.sqrt(W))+special.erfi((np.pi*x+1j*W**2)/np.sqrt(W))-2*special.erfi(np.pi*x/np.sqrt(W)))
+#     return -np.pi*I.real
 
 def CoeffSplineInterpolation(x_j,x_i):
     x = (x_j-x_i)
@@ -345,18 +349,30 @@ def DefriseIntegrationCgtVar(gamma_s, gamma,g,v,xe,D,window):
 
 def DefriseIntegrationHilbertKernel(gamma_s, gamma, g, v, xe, D, window, W_frac):
     g_c = D*g/np.sqrt(D**2+v**2)
-    g_tilde= g_c/np.sinc((gamma-gamma_s)/np.pi)
+    g_tilde= g_c/np.sinc((gamma_s-gamma)/np.pi)
     dgamma = np.abs(gamma[1]-gamma[0])
     W = 1/(2*dgamma)
     if window == "Rect":
         coeffs = CoeffShannonInterpolationRect(gamma_s, gamma, W/W_frac)
     elif window == "Hann":
         coeffs = CoeffShannonInterpolationHann(gamma_s, gamma, W/W_frac)
-    elif window == "Blackmann":
-        coeffs = CoeffShannonInterpolationGauss(gamma_s, gamma, W/W_frac)
+    elif window == "Hamming":
+        coeffs = CoeffShannonInterpolationHamming(gamma_s, gamma, W/W_frac, 0.65, 0.35)
     elif window == "Gauss":
         print("ici")
         coeffs = CoeffShannonInterpolationBlackmann(gamma_s, gamma, W/W_frac)
-    moment, norm = dgamma*np.sum(g_tilde*coeffs), dgamma*np.sum(np.abs(g_tilde*coeffs))
-    return -np.sign(gamma_s)*moment, norm
-    
+    moment, norm = np.sqrt(xe[0]**2+xe[2]**2)*dgamma*np.sum(g_tilde*coeffs), np.sqrt(xe[0]**2+xe[2]**2)*dgamma*np.sum(np.abs(g_tilde*coeffs))
+    return np.sign(gamma_s)*moment, norm, coeffs
+
+
+def DefriseIntegrationHilbertKernelVec(gamma_s, gamma, g, v, xe, D, window, W_frac):
+    g_c = D*g/np.sqrt(D**2+v**2)
+    g_tilde= g_c/np.sinc((gamma_s-np.array([gamma]*v.shape[1]).T)/np.pi)
+    dgamma = np.abs(gamma[1]-gamma[0])
+    W = 1/(2*dgamma)
+    if window == "Rect":
+        coeffs = CoeffShannonInterpolationRect(gamma_s, gamma, W/W_frac)
+    elif window == "Hann":
+        coeffs = CoeffShannonInterpolationHann(gamma_s, gamma, W/W_frac)
+    moment, norm = np.sqrt(xe[0]**2+xe[2]**2)*dgamma*np.sum(g_tilde*np.array([coeffs]*v.shape[1]).T, axis = 0), np.sqrt(xe[0]**2+xe[2]**2)*dgamma*np.sum(np.abs(g_tilde*np.array([coeffs]*v.shape[1]).T), axis = 0)
+    return np.sign(gamma_s)*moment, norm, coeffs

@@ -3,6 +3,14 @@ import itk
 from itk import RTK as rtk
 
 
+def NPtoRTK(geometryArray, i):
+    sid, sdd, ga, dx, dy, oa, ia, sx, sy = geometryArray[0, i], geometryArray[1, i], geometryArray[2, i], geometryArray[3, i], geometryArray[4, i], geometryArray[5, i], geometryArray[6, i], geometryArray[7, i], geometryArray[8, i]
+    g = rtk.ThreeDCircularProjectionGeometry.New()
+    g.SetRadiusCylindricalDetector(geometryArray[9, i])
+    g.AddProjectionInRadians(sid, sdd, ga, dx, dy, oa, ia, sx, sy)
+    return g
+
+
 def RTKtoNP(geometryRTK):
     # Extrait les informations de rtk pour en faire des vecteurs
     nproj = len(geometryRTK.GetGantryAngles())
@@ -60,14 +68,6 @@ def GetFixedSystemMatrices(geometryRTK):
         fsMat = itk.GetArrayFromVnlMatrix(fsMat.GetVnlMatrix().as_matrix())
         matrices.append(fsMat)
     return matrices
-
-
-def NPtoRTK(geometryArray, i):
-    sid, sdd, ga, dx, dy, oa, ia, sx, sy = geometryArray[0, i], geometryArray[1, i], geometryArray[2, i], geometryArray[3, i], geometryArray[4, i], geometryArray[5, i], geometryArray[6, i], geometryArray[7, i], geometryArray[8, i]
-    g = rtk.ThreeDCircularProjectionGeometry.New()
-    g.SetRadiusCylindricalDetector(geometryArray[9, i])
-    g.AddProjectionInRadians(sid, sdd, ga, dx, dy, oa, ia, sx, sy)
-    return g
 
 
 def ARRAYtoRTK(projArray, projSpacing, projOrigin, projSize, projDirection, i):

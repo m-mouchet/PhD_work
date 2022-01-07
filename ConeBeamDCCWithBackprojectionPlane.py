@@ -86,7 +86,7 @@ def ComputeWeightedBackProjection(geometry, projection_i, volDirection, invMagSp
         new_proj_ar = itk.GetArrayFromImage(projection_i)
         new_proj = itk.GetImageFromArray(np.float32(new_proj_ar))
         new_proj.CopyInformation(projection_i)
-        new_proj.SetOrigin([dx, dy-sy, new_proj.GetOrigin()[2]])
+        new_proj.SetOrigin([dx-sx, dy-sy, new_proj.GetOrigin()[2]])
         new_proj.Update()
         bp.SetGeometry(new_geo0)
         vol = bp.SetInput(1, new_proj)
@@ -111,11 +111,23 @@ def ComputeWeightedBackProjection(geometry, projection_i, volDirection, invMagSp
     weightFilter.Update()
     weight = weightFilter.GetOutput()
     weightarray = itk.GetArrayFromImage(weight)
+
+    ione = rtk.ConstantImageSource[ImageType].New()
+    ione.SetInformationFromImage(vol)
+    ione.SetConstant(1.)
+    ione.Update()
+    weightFilter2 = rtk.FDKWeightProjectionFilter[ImageType].New()
+    weightFilter2.SetGeometry(geoWeight)
+    weightFilter2.SetInput(ione.GetOutput())
+    weightFilter2.Update()
+    weight2 = weightFilter2.GetOutput()
+    weightarray2 = itk.GetArrayFromImage(weight2)
+
     vk = np.linspace(origin[1]+volSpacing[1]/2, otherCorner[1]-volSpacing[1]/2, volSize[1]) - sourcePosWeight[1]
-    Dvirt = sourcePosWeight[2]
     for i in range(volSize[1]):
-        weightarray[0, i, :] /= np.sqrt(vk[i]**2+Dvirt**2)
-    return np.squeeze(vol.GetSpacing()[0]*np.sum(weightarray, axis=2)/(np.pi)), volOrigin, volOtherCorner, volDirection, vk
+        weightarray[0, i, :] /= np.sqrt(vk[i]**2+sourcePosWeight[2]**2)
+        weightarray2[0, i, :] /= np.sqrt(vk[i]**2+sourcePosWeight[2]**2)
+    return np.squeeze(vol.GetSpacing()[0]*np.sum(weightarray, axis=2)/(np.pi)), volOrigin, volOtherCorner, volDirection, vk, sourcePosWeight, weightarray2
 
 
 def ComputeDCCsBPForOnePair(idx0, idx1, geometry, projection):
@@ -168,6 +180,8 @@ class ProjectionsPairBP():
         # Compute BP plane corners
         self.corners = None
         self.projIdxToCoord0, self.projIdxToCoord1 = ExtractProjCoorToFixedSysMatrice(self.g0, self.g1)
+        self.CornersDet0 = []
+        self.CornersDet1 = [] 
         invMag_List = []
         for j in self.p0.GetOrigin()[1], self.p0.GetOrigin()[1]+size[1]:
             for i in self.p0.GetOrigin()[0], self.p0.GetOrigin()[0]+size[0]:            
@@ -177,9 +191,9 @@ class ProjectionsPairBP():
                     w = 0
                 else:  #cylindrical detector
                     self.theta = (i+self.dx0)/self.R0
-                    u = self.R0*np.sin(self.theta) - self.dx0
+                    u = self.R0*np.sin(self.theta)-self.dx0
                     v = j
-                    w = self.R0*(1-np.cos(self.theta))
+                    w = self.R0*(1-np.cos(self.theta)) 
                 idx = np.array((u, v, w, 1))
                 coord0 = self.projIdxToCoord0.dot(idx)
                 coord1 = self.projIdxToCoord1.dot(idx)
@@ -192,6 +206,8 @@ class ProjectionsPairBP():
                 invMag = np.dot(self.s1, self.sourceDir2)/np.dot(coord1Source, self.sourceDir2)
                 invMag_List.append(invMag)
                 planePos1 = np.dot(self.volDirection, self.s1-invMag*coord1Source)
+                self.CornersDet0.append(coord0[0:3])
+                self.CornersDet1.append(coord1[0:3])
                 if self.corners is None:
                     self.corners = planePos0[0:2]
                 else:
@@ -206,8 +222,8 @@ class ProjectionsPairBP():
         self.origin = np.array([np.min(self.corners[:, 0]), np.max(self.corners[np.arange(4), 1]), 0.])
         self.otherCorner = np.array([np.max(self.corners[:, 0]), np.min(self.corners[4+np.arange(4), 1]), 0.])
         # Compute moments
-        self.m0, self.volOrigin0, self.volOtherCorner0, self.volDirectionT0, self.vk0 = ComputeWeightedBackProjection(self.g0, self.p0, self.volDirection, self.invMagSpacing, self.origin, self.otherCorner, self.s0)
-        self.m1, self.volOrigin1, self.volOtherCorner1, self.volDirectionT1, self.vk1 = ComputeWeightedBackProjection(self.g1, self.p1, self.volDirection, self.invMagSpacing, self.origin, self.otherCorner, self.s1)
+        self.m0, self.volOrigin0, self.volOtherCorner0, self.volDirectionT0, self.vk0, self.spw0, self.weight0 = ComputeWeightedBackProjection(self.g0, self.p0, self.volDirection, self.invMagSpacing, self.origin, self.otherCorner, self.s0)
+        self.m1, self.volOrigin1, self.volOtherCorner1, self.volDirectionT1, self.vk1, self.spw1, self.weight1 = ComputeWeightedBackProjection(self.g1, self.p1, self.volDirection, self.invMagSpacing, self.origin, self.otherCorner, self.s1)
 
     def PlotPairMoments(self):
         plt.figure()
@@ -216,5 +232,25 @@ class ProjectionsPairBP():
         plt.xlabel("K")
         plt.ylabel("Moments (u.a.)")
         plt.legend()
-        plt.title("Fbdcc on cylindrical detectors")
+        plt.title("Fbdcc on virtual detector")
+        plt.show()
+    
+    def PlotProjProfile(self, row):
+        plt.figure()
+        plt.plot(itk.GetArrayFromImage(self.p0)[0,row,:], label="p0")
+        plt.plot(itk.GetArrayFromImage(self.p1)[0,row,:], '--', label="p1")
+        plt.xlabel("col")
+        plt.ylabel("I (u.a.)")
+        plt.legend()
+        plt.title("Proj profile row %d"%row)
+        plt.show()
+    
+    def PlotWeightProfile(self, row):
+        plt.figure()
+        plt.plot(self.weight0[0,row,:], label="w0")
+        plt.plot(self.weight1[0,row,:], '--', label="w1")
+        plt.xlabel("col")
+        plt.ylabel("I (u.a.)")
+        plt.legend()
+        plt.title("Weight profile row %d"%row)
         plt.show()
