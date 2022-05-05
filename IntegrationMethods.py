@@ -1,6 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import time
+
 
 def TestForSingularity(angle, xs):  #Find the indices of the angles surrounding the singularity
     a = 0
@@ -62,92 +61,73 @@ def TrapIntegrationAndLinearModel(gamma_s, gamma, g, v, xe, D):  #Perform numeri
 
 
 ### Trapezoidale rule + adding one sample + king singularity estimation
-def TrapIntegrationAndKingModelSmallInterval(gamma_s, gamma, g, v, xe, D):
-    dgamma = np.abs(gamma[1]-gamma[0])
-    g_cw = D*g/(np.sqrt(D**2+v**2)*(np.cos(gamma)*xe[0]+np.sin(gamma)*xe[2]))
-    ii, iii = TestForSingularity(gamma, gamma_s)
-    g_c = D*g/np.sqrt(D**2+v**2)
-    
-    if np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) <= 10**(-10):
-        rest = dgamma*(np.interp(gamma_s+dgamma,gamma,g_c)-np.interp(gamma_s-dgamma,gamma,g_c))/2
-        summ = dgamma*(np.sum(g_cw[0:ii]) + g_cw[ii]/2 + np.sum(g_cw[iii+1:]) + g_cw[iii]/2)
-        norm = np.abs(rest)+np.abs(dgamma*(np.sum(g_cw[0:ii]) + g_cw[ii]/2)) + np.abs(dgamma*(np.sum(g_cw[iii+1:]) + g_cw[iii]/2))
-    
-    elif np.abs(gamma[ii]-gamma_s)<np.abs(gamma[iii]-gamma_s) and np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) >= 10**(-10):
-        gamma_a = gamma_s + np.abs(gamma[ii]-gamma_s)
-        g_cw_gamma_a = np.interp(gamma_a,gamma,g_c)/(np.cos(gamma_a)*xe[0]+np.sin(gamma_a)*xe[2])
-        summ = dgamma*(np.sum(g_cw[0:ii]) + g_cw[ii]/2 + np.sum(g_cw[iii+1:]) + g_cw[iii]/2) + (gamma[iii]-gamma_a)*(g_cw[iii]+g_cw_gamma_a)/2
-        rest = (np.interp(gamma_a,gamma,g_c) - g_c[ii])
-        norm = np.abs(rest) + np.abs(dgamma*(np.sum(g_cw[0:ii]) + g_cw[ii]/2)) + np.abs(dgamma * (np.sum(g_cw[iii+1:]) + g_cw[iii]/2)) + np.abs((gamma[iii]-gamma_a)*(g_cw[iii]+g_cw_gamma_a)/2)
-        
-    elif np.abs(gamma[ii]-gamma_s)>np.abs(gamma[iii]-gamma_s) and np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) >= 10**(-10):
-        gamma_a = gamma_s - np.abs(gamma[iii]-gamma_s)
-        g_cw_gamma_a = np.interp(gamma_a,gamma,g_c)/(np.cos(gamma_a)*xe[0]+np.sin(gamma_a)*xe[2])
-        summ = dgamma*(np.sum(g_cw[0:ii]) + g_cw[ii]/2 + np.sum(g_cw[iii+1:]) + g_cw[iii]/2) + (gamma_a-gamma[ii])*(g_cw[ii] + g_cw_gamma_a)/2
-        rest = (g_c[iii] - np.interp(gamma_a,gamma,g_c))
-        norm = np.abs(rest) + np.abs(dgamma*(np.sum(g_cw[0:ii]) + g_cw[ii]/2)) + np.abs(dgamma*(np.sum(g_cw[iii+1:]) + g_cw[iii]/2)) + np.abs((gamma_a-gamma[ii])*(g_cw[ii] + g_cw_gamma_a)/2) 
-        
-    else:
-        print("error")
-        
-    if gamma_s > 0:
-            rest*=-1
-        
-    return summ+rest, norm, summ, rest
-
-
-### Trapezoidale rule + adding one sample + king singularity estimation
-def TrapIntegrationAndKingModelLargeInterval(gamma_s, gamma, g, v, xe, D):
+def TrapIntegrationAndKingModelSmallInterval(eb, ee, en, gamma_e, gamma_s, gamma, g, v, vp, D):
+    A_gamma = -D*(eb[2]*np.sin(np.array([gamma]*g.shape[1]).T)+eb[0]*np.cos(np.array([gamma]*g.shape[1]).T))/(en[:,1]*np.sqrt(D**2+v**2))
+    Ap_gamma1 = (-eb[0]*np.sin(np.array([gamma]*g.shape[1]).T)+eb[2]*np.cos(np.array([gamma]*g.shape[1]).T))*(D**2+v**2)
+    Ap_gamma2 = (eb[2]*np.sin(np.array([gamma]*g.shape[1]).T)+eb[0]*np.cos(np.array([gamma]*g.shape[1]).T))*v*vp
+    Ap_gamma = -D*(Ap_gamma1-Ap_gamma2)/(en[:,1]*(D**2+v**2)**1.5)
+    B_gamma = D*(ee[:, 0]*np.cos(np.array([gamma]*g.shape[1]).T) + ee[:, 2]*np.sin(np.array([gamma]*g.shape[1]).T))/en[:,1]
+    Bp_gamma = D*(-ee[:, 0]*np.sin(np.array([gamma]*g.shape[1]).T) + ee[:, 2]*np.cos(np.array([gamma]*g.shape[1]).T))/en[:,1]
+    C_gamma = -g*en[:, 1]*np.sqrt(D**2+v**2)*2*Bp_gamma*np.arccos(A_gamma)/(D*(eb[2]*np.sin(np.array([gamma]*g.shape[1]).T)+eb[0]*np.cos(np.array([gamma]*g.shape[1]).T)))
+    w_gamma = en[:, 1]*np.sqrt(D**2+v**2)*np.sign(B_gamma)*(Ap_gamma/np.sqrt(1-A_gamma**2))/D
+    I1 = np.zeros(g.shape[1])
+    for j in range(g.shape[1]):
+        I1[j] += (np.interp(gamma_e[j], gamma, C_gamma[:, j], left=0., right=0.)/np.abs(np.interp(gamma_e[j], gamma, Bp_gamma[:, j], left=1., right=1.)))
+    gw = g*w_gamma*np.sign(gamma_s)*np.sqrt(eb[0]**2+eb[2]**2)
+    Gw = gw/np.sin(gamma_s-np.array([gamma]*g.shape[1]).T)
     dgamma = np.abs(gamma[1]-gamma[0])
     ii, iii = TestForSingularity(gamma, gamma_s)
-    g_c = D*g/np.sqrt(D**2+v**2)
-    g_cw = g_c/(np.cos(gamma)*xe[0]+np.sin(gamma)*xe[2])
-    
-    if np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) <= 10**(-10):
-        rest = dgamma*(np.interp(gamma_s+dgamma,gamma,g_c)-np.interp(gamma_s-dgamma,gamma,g_c))/2
-        summ = dgamma*(np.sum(g_cw[0:ii]) + g_cw[ii]/2 + np.sum(g_cw[iii+1:]) + g_cw[iii]/2)
-        norm = np.abs(rest)+np.abs(dgamma*(np.sum(g_cw[0:ii]) + g_cw[ii]/2)) + np.abs(dgamma*(np.sum(g_cw[iii+1:]) + g_cw[iii]/2))
-    
-    elif np.abs(gamma[ii]-gamma_s)<np.abs(gamma[iii]-gamma_s) and np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) >= 10**(-10):
-        gamma_a = gamma_s - np.abs(gamma[iii]-gamma_s)
-        g_cw_gamma_a = np.interp(gamma_a,gamma,g_c)/(np.cos(gamma_a)*xe[0]+np.sin(gamma_a)*xe[2])
-        summ = dgamma*(np.sum(g_cw[0:ii-1]) + g_cw[ii-1]/2 + np.sum(g_cw[iii+1:]) + g_cw[iii]/2) + (gamma_a-gamma[ii-1])*(g_cw[ii-1]+g_cw_gamma_a)/2
-#         rest = (np.interp(2*gamma_s-gamma[ii],gamma,g_c) - g_c[ii])*(gamma[iii]-gamma_s)/(2*(gamma_s-gamma[ii]))
-        rest = (g_c[iii]-np.interp(gamma_a,gamma,g_c))
-        norm = np.abs(rest) + np.abs(dgamma*(np.sum(g_cw[0:ii-1]) + g_cw[ii-1]/2)) + np.abs(dgamma*(np.sum(g_cw[iii+1:]) + g_cw[iii]/2)) + np.abs((gamma_a-gamma[ii-1])*(g_cw[ii-1]+g_cw_gamma_a)/2)
-        
-#         plt.figure()
-#         plt.plot(gamma[ii-5:iii+6],g_cw[ii-5:iii+6])
-#         plt.plot(gamma[ii],0,'+',label='j')
-#         plt.plot(gamma[iii],0,'+',label='j+1')
-#         plt.plot(gamma_a,0,'+',label='a')
-#         plt.axhline(y=0,color='k')
-#         plt.legend()
-#         plt.show()
-        
-        
-    elif np.abs(gamma[ii]-gamma_s)>np.abs(gamma[iii]-gamma_s) and np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) >= 10**(-10):
-        gamma_a = gamma_s + np.abs(gamma[ii]-gamma_s)
-        g_cw_gamma_a = np.interp(gamma_a,gamma,g_c)/(np.cos(gamma_a)*xe[0]+np.sin(gamma_a)*xe[2])
-        summ = dgamma*(np.sum(g_cw[0:ii]) + g_cw[ii]/2 + np.sum(g_cw[iii+2:]) + g_cw[iii+1]/2) + (gamma[iii+1]-gamma_a)*(g_cw[iii+1] + g_cw_gamma_a)/2
-#         rest = (g_c[iii] - np.interp(2*gamma_s-gamma[iii],gamma,g_c))*(gamma_s-gamma[ii])/(2*(gamma[iii]-gamma_s))
-        rest = (np.interp(gamma_a,gamma,g_c)-g_c[ii])
-        norm = np.abs(rest) + np.abs(dgamma*(np.sum(g_cw[iii+2:]) + g_cw[iii+1]/2)) + np.abs(dgamma*(np.sum(g_cw[0:ii]) + g_cw[ii]/2)) + np.abs((gamma[iii+1]-gamma_a)*(g_cw[iii+1] + g_cw_gamma_a)/2) 
-#         plt.figure()
-#         plt.plot(gamma[ii-5:iii+6],g_cw[ii-5:iii+6])
-#         plt.plot(gamma[ii],0,'+',label='j')
-#         plt.plot(gamma[iii],0,'+',label='j+1')
-#         plt.plot(gamma_a,0,'+',label='a')
-#         plt.axhline(y=0,color='k')
-#         plt.legend()
-#         plt.show()
-    else:
-        print("error")
-        
-    if gamma_s > 0:
-            rest*=-1
-        
-    return summ+rest, norm
+    summ = np.zeros(g.shape[1])
+    rest = np.zeros(g.shape[1])
+    for j in range(g.shape[1]):
+        if np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) <= 10**(-10):
+            rest[j] = dgamma*(np.interp(gamma_s+dgamma, gamma, gw[:, j])-np.interp(gamma_s-dgamma, gamma, gw[:, j]))/2
+            summ[j] = dgamma*(np.sum(Gw[0:ii, j]) + Gw[ii, j]/2 + np.sum(Gw[iii+1:, j]) + Gw[iii, j]/2)
+        elif np.abs(gamma[ii]-gamma_s) < np.abs(gamma[iii]-gamma_s) and np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) >= 10**(-10):
+            gamma_a = gamma_s + 2*np.abs(gamma[ii]-gamma_s)
+            Gwa = np.interp(gamma_a, gamma, gw[:, j])/np.sin(gamma_s-gamma_a)
+            summ[j] = dgamma*(np.sum(Gw[0:ii, j]) + Gw[ii, j]/2 + np.sum(Gw[iii+1:, j]) + Gw[iii, j]/2) + (gamma[iii]-gamma_a)*(Gw[iii, j]+Gwa)/2
+            rest[j] = (np.interp(gamma_a, gamma, gw[:, j]) - gw[ii, j])/2
+        elif np.abs(gamma[ii]-gamma_s) > np.abs(gamma[iii]-gamma_s) and np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) >= 10**(-10):
+            gamma_a = gamma_s - 2*np.abs(gamma[iii]-gamma_s)
+            Gwa = np.interp(gamma_a, gamma, gw[:, j])/np.sin(gamma_s-gamma_a)
+            summ[j] = dgamma*(np.sum(Gw[0:ii, j]) + Gw[ii, j]/2 + np.sum(Gw[iii+1:, j]) + Gw[iii, j]/2) + (gamma_a-gamma[ii])*(Gw[ii, j]+Gwa)/2
+            rest[j] = (gw[iii, j] - np.interp(gamma_a, gamma, gw[:, j]))/2
+    return summ+rest+I1
+
+def TrapIntegrationAndKingModelLargeInterval(eb, ee, en, gamma_e, gamma_s, gamma, g, v, vp, D):
+    A_gamma = -D*(eb[2]*np.sin(np.array([gamma]*g.shape[1]).T)+eb[0]*np.cos(np.array([gamma]*g.shape[1]).T))/(en[:,1]*np.sqrt(D**2+v**2))
+    Ap_gamma1 = (-eb[0]*np.sin(np.array([gamma]*g.shape[1]).T)+eb[2]*np.cos(np.array([gamma]*g.shape[1]).T))*(D**2+v**2)
+    Ap_gamma2 = (eb[2]*np.sin(np.array([gamma]*g.shape[1]).T)+eb[0]*np.cos(np.array([gamma]*g.shape[1]).T))*v*vp
+    Ap_gamma = -D*(Ap_gamma1-Ap_gamma2)/(en[:,1]*(D**2+v**2)**1.5)
+    B_gamma = D*(ee[:, 0]*np.cos(np.array([gamma]*g.shape[1]).T) + ee[:, 2]*np.sin(np.array([gamma]*g.shape[1]).T))/en[:,1]
+    Bp_gamma = D*(-ee[:, 0]*np.sin(np.array([gamma]*g.shape[1]).T) + ee[:, 2]*np.cos(np.array([gamma]*g.shape[1]).T))/en[:,1]
+    C_gamma = -g*en[:, 1]*np.sqrt(D**2+v**2)*2*Bp_gamma*np.arccos(A_gamma)/(D*(eb[2]*np.sin(np.array([gamma]*g.shape[1]).T)+eb[0]*np.cos(np.array([gamma]*g.shape[1]).T)))
+    w_gamma = en[:, 1]*np.sqrt(D**2+v**2)*np.sign(B_gamma)*(Ap_gamma/np.sqrt(1-A_gamma**2))/D
+    I1 = np.zeros(g.shape[1])
+    for j in range(g.shape[1]):
+        I1[j] += (np.interp(gamma_e[j], gamma, C_gamma[:, j], left=0., right=0.)/np.abs(np.interp(gamma_e[j], gamma, Bp_gamma[:, j], left=1., right=1.)))
+    gw = g*w_gamma*np.sign(gamma_s)*np.sqrt(eb[0]**2+eb[2]**2)
+    Gw = gw/np.sin(gamma_s-np.array([gamma]*g.shape[1]).T)
+    dgamma = np.abs(gamma[1]-gamma[0])
+    ii, iii = TestForSingularity(gamma, gamma_s)
+    summ = np.zeros(g.shape[1])
+    rest = np.zeros(g.shape[1])
+    for j in range(g.shape[1]):
+        if np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) <= 10**(-10):
+            rest[j] = dgamma*(np.interp(gamma_s+dgamma, gamma, gw[:, j])-np.interp(gamma_s-dgamma, gamma, gw[:, j]))/2
+            summ[j] = dgamma*(np.sum(Gw[0:ii, j]) + Gw[ii, j]/2 + np.sum(Gw[iii+1:, j]) + Gw[iii, j]/2)
+        elif np.abs(gamma[ii]-gamma_s) < np.abs(gamma[iii]-gamma_s) and np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) >= 10**(-10):
+            gamma_a = gamma_s - 2*np.abs(gamma[ii]-gamma_s)
+            Gwa = np.interp(gamma_a, gamma, gw[:, j])/np.sin(gamma_s-gamma_a)
+            summ[j] = dgamma*(np.sum(Gw[0:ii-1, j]) + Gw[ii-1, j]/2 + np.sum(Gw[iii+1:, j]) + Gw[iii, j]/2) + (gamma_a-gamma[ii-1])*(Gw[ii-1, j]+Gwa)/2
+            rest[j] = (gw[iii, j]-np.interp(gamma_a, gamma, gw[:, j]))/2
+        elif np.abs(gamma[ii]-gamma_s) > np.abs(gamma[iii]-gamma_s) and np.abs(np.abs(gamma[ii]-gamma_s)-np.abs(gamma[iii]-gamma_s)) >= 10**(-10):
+            gamma_a = gamma_s + 2*np.abs(gamma[iii]-gamma_s)
+            Gwa = np.interp(gamma_a, gamma, gw[:, j])/np.sin(gamma_s-gamma_a)
+            summ[j] = dgamma*(np.sum(Gw[0:ii, j]) + Gw[ii, j]/2 + np.sum(Gw[iii+2:, j]) + Gw[iii+1, j]/2) + (gamma[iii+1] -gamma_a)*(Gw[iii+1, j]+Gwa)/2
+            rest[j] = (np.interp(gamma_a, gamma, gw[:, j])-gw[ii, j])/2
+    return summ+I1+rest, rest, summ
 
 
 ### Trap integration + estimation de la partie de la singularité avec la methode de michel defrise
@@ -306,33 +286,11 @@ def PiessensApplyToSingularity(gamma_s,gamma,g_c):
 #### Using Defrise note on half pixel shift
 def CoeffShannonInterpolationRect(x_j, x_i, W):
     x = (x_j-x_i)
-    return (1-np.cos(2*W*np.pi*x))/(x)
+    return (1-np.cos(2*W*np.pi*x))/(np.pi*x)
 
 def CoeffShannonInterpolationHann(x_j, x_i, W):
     x = (x_j-x_i)
-    return (1-np.cos(np.pi*x*2*W))/(2*x) + (1+np.cos(2*W*np.pi*x))*(1/(x+1/(2*W)) + 1/(x-1/(2*W)))/4
-
-def CoeffShannonInterpolationHamming(x_j, x_i, W, a, b):
-    x = (x_j-x_i)
-    return a*(1-np.cos(np.pi*x*2*W))/(np.pi*x) + b*(1+np.cos(2*W*np.pi*x))*(1/(x+1/(2*W)) + 1/(x-1/(2*W)))/(4)
-
-def CoeffShannonInterpolationBlackmann(x_j, x_i, W):
-    x = (x_j-x_i)
-    I1 = 0.42*(1-np.cos(2*np.pi*W*x))/x
-    I2 = (1+np.cos(2*W*np.pi*x))*(1/(x+1/(2*W)) + 1/(x-1/(2*W)))/4
-    I3 = 0.04*(1-np.cos(2*np.pi*W*x))*(1/(x+1/W) + 1/(x-1/W))
-    return  I1 + I2 + I3
-
-# from scipy import special
-
-# def CoeffShannonInterpolationGauss(x_j, x_i, W):
-#     x = (x_j-x_i)
-#     I= 0.5*np.sqrt(np.pi/W)*np.exp(-(np.pi*x)**2/W)*(special.erfi((np.pi*x-1j*W**2)/np.sqrt(W))+special.erfi((np.pi*x+1j*W**2)/np.sqrt(W))-2*special.erfi(np.pi*x/np.sqrt(W)))
-#     return -np.pi*I.real
-
-def CoeffSplineInterpolation(x_j,x_i):
-    x = (x_j-x_i)
-    return ((1+x)*np.log(np.abs((x+1)/x))-(1-x)*np.log(np.abs((x-1)/x)))
+    return ((1-np.cos(np.pi*x*2*W))/(2*x) + (1+np.cos(2*W*np.pi*x))*(1/(x+1/(2*W)) + 1/(x-1/(2*W)))/4)/np.pi
                                         
 def DefriseIntegrationCgtVar(gamma_s, gamma,g,v,xe,D,window):
     g_c = D*g/np.sqrt(D**2+v**2)
@@ -356,23 +314,18 @@ def DefriseIntegrationHilbertKernel(gamma_s, gamma, g, v, xe, D, window, W_frac)
         coeffs = CoeffShannonInterpolationRect(gamma_s, gamma, W/W_frac)
     elif window == "Hann":
         coeffs = CoeffShannonInterpolationHann(gamma_s, gamma, W/W_frac)
-    elif window == "Hamming":
-        coeffs = CoeffShannonInterpolationHamming(gamma_s, gamma, W/W_frac, 0.65, 0.35)
-    elif window == "Gauss":
-        print("ici")
-        coeffs = CoeffShannonInterpolationBlackmann(gamma_s, gamma, W/W_frac)
-    moment, norm = np.sqrt(xe[0]**2+xe[2]**2)*dgamma*np.sum(g_tilde*coeffs), np.sqrt(xe[0]**2+xe[2]**2)*dgamma*np.sum(np.abs(g_tilde*coeffs))
-    return np.sign(gamma_s)*moment, norm, coeffs
+    moment = dgamma*np.sum(g_tilde*coeffs)/np.sqrt(xe[0]**2+xe[2]**2)
+    return np.sign(gamma_s)*moment, coeffs
 
 
 def DefriseIntegrationHilbertKernelVec(gamma_s, gamma, g, v, xe, D, window, W_frac):
     g_c = D*g/np.sqrt(D**2+v**2)
-    g_tilde= g_c/np.sinc((gamma_s-np.array([gamma]*v.shape[1]).T)/np.pi)
+    g_tilde= g_c/np.sinc((gamma_s-np.array([gamma]*g.shape[1]).T)/np.pi)
     dgamma = np.abs(gamma[1]-gamma[0])
     W = 1/(2*dgamma)
     if window == "Rect":
         coeffs = CoeffShannonInterpolationRect(gamma_s, gamma, W/W_frac)
     elif window == "Hann":
         coeffs = CoeffShannonInterpolationHann(gamma_s, gamma, W/W_frac)
-    moment, norm = np.sqrt(xe[0]**2+xe[2]**2)*dgamma*np.sum(g_tilde*np.array([coeffs]*v.shape[1]).T, axis = 0), np.sqrt(xe[0]**2+xe[2]**2)*dgamma*np.sum(np.abs(g_tilde*np.array([coeffs]*v.shape[1]).T), axis = 0)
-    return np.sign(gamma_s)*moment, norm, coeffs
+    moment = np.pi/np.sqrt(xe[0]**2+xe[2]**2)*dgamma*np.sum(g_tilde*np.array([coeffs]*g.shape[1]).T, axis = 0)
+    return np.sign(gamma_s)*moment, coeffs
