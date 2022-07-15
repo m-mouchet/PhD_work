@@ -5,7 +5,7 @@ from ConeBeamDCCWithBackprojectionPlane import *
 from RTKToArrayConversion import *
 import itertools
 from tqdm import tqdm_notebook
-#from joblib import Parallel, delayed
+from joblib import Parallel, delayed
 
 
 def Error(m0, m1):
@@ -110,9 +110,10 @@ class DCCWithBPinAnAcquisition():
         else:
             self.n_proj_per_rotation = np.where(self.geometry[2, :] == self.geometry[2, 0])[0][1] - np.where(self.geometry[2, :] == self.geometry[2, 0])[0][0]
             self.d = np.abs(self.geometry[8, self.n_proj_per_rotation-1] - self.geometry[8, 0])
-        self.R_fov = self.geometry[0, 0]*np.sin(self.proj_size[0]*self.proj_spacing[0]/(2*self.geometry[1, 0]))  # ANGLE EN RADIAN
+        self.gamma = (self.proj_origin[0] + self.geometry[3, 0]-self.geometry[7, 0] + np.arange(self.proj_size[0])*self.proj_spacing[0]*self.proj_direction[0, 0])/self.geometry[9,0]
+        self.R_fov = np.max((np.abs(self.geometry[0, 0]*np.sin(self.gamma[0])), np.abs(self.geometry[0, 0]*np.sin(self.gamma[-1]))))  # ANGLE EN RADIAN
         self.P = np.abs(self.d*self.geometry[1, 0]/(self.geometry[0, 0]*self.proj_size[1]))
-        self.axial_limit = int(self.n_proj_per_rotation*np.round((1-1/self.proj_size[1])/self.P))
+        self.axial_limit = 2*int(self.n_proj_per_rotation*(1-1/self.proj_size[1])/self.P)
 
     def CheckPairGeometry(self, idx0, idx1):
         # check fov
@@ -124,10 +125,11 @@ class DCCWithBPinAnAcquisition():
         else:
             return 0
 
-    def ComputeAllPossiblePairs(self): #retourne les indices de toutes les pairs possible dans une acquisition
+    def ComputeAllPossiblePairs(self, ref_list): #retourne les indices de toutes les pairs possible dans une acquisition
         # on fait pour toutes les projections de la rotation centrale
         # puis ensuite on généralise
         # il faut verifier le fov et l'overlapp
+        self.ref_list = ref_list
         s0L = np.arange(self.n_proj_per_rotation*(self.n_rotation//2), self.n_proj_per_rotation*(self.n_rotation//2+1))
         results = []
         for i in tqdm_notebook(range(len(s0L))):
@@ -142,7 +144,7 @@ class DCCWithBPinAnAcquisition():
             self.rangeList.append([k for k in results[i] if k != 0])
             self.rangeList[i].sort()
         pair_idx_temp = []
-        for ip0 in range(self.n_proj):
+        for ip0 in range(len(self.ref_list)):
             for ip1 in self.rangeList[ip0 % self.n_proj_per_rotation]:
                 if (ip0 == ip0+ip1) or (ip0+ip1 < 0) or (ip0+ip1 >= self.n_proj):
                     pass
@@ -169,7 +171,7 @@ class DCCWithBPinAnAcquisition():
 
     def ComputeDCCForAllPairsPara(self):
         indexes = np.arange(len(self.pairs_idx))
-        self.pairs = Parallel(n_jobs=4, backend="threading")(delayed(unwrap_self_ComputeDCCForOnePair)(i) for i in tqdm_notebook(zip([self]*len(indexes), indexes), total=len(indexes)))
+        self.pairs = Parallel(n_jobs=12, backend="threading")(delayed(unwrap_self_ComputeDCCForOnePair)(i) for i in tqdm_notebook(zip([self]*len(indexes), indexes), total=len(indexes)))
         #self.pairs = pool.map(unwrap_self_ComputeDCCForOnePair, zip([self]*len(self.pairs_idx), indexes))
         #self.pairs = []
         #jobs = [pool.apply_async(unwrap_self_ComputeDCCForOnePair, args=(argument,)) for argument in zip([self]*len(self.pairs_idx), indexes)]

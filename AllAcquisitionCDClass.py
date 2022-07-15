@@ -76,6 +76,7 @@ class DCCOnCDinAnAcquisition():
         else:
             self.n_proj_per_rotation = np.where(self.geometry[2, :] == self.geometry[2, 0])[0][1] - np.where(self.geometry[2, :] == self.geometry[2, 0])[0][0]
             self.d = np.abs(self.geometry[8, self.n_proj_per_rotation-1] - self.geometry[8, 0])
+        self.spiral_dir = np.sign(self.geometry[8, -1]-self.geometry[8, 0])
         self.R_det = self.geometry[9, 0]
         self.sid = self.geometry[0, 0]
         self.sdd = self.geometry[1, 0]

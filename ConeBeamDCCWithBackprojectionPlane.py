@@ -111,6 +111,7 @@ def ComputeWeightedBackProjection(geometry, projection_i, volDirection, invMagSp
     weightFilter.Update()
     weight = weightFilter.GetOutput()
     weightarray = itk.GetArrayFromImage(weight)
+    # print(sourcePosWeight)
 
     ione = rtk.ConstantImageSource[ImageType].New()
     ione.SetInformationFromImage(vol)
@@ -127,7 +128,7 @@ def ComputeWeightedBackProjection(geometry, projection_i, volDirection, invMagSp
     for i in range(volSize[1]):
         weightarray[0, i, :] /= np.sqrt(vk[i]**2+sourcePosWeight[2]**2)
         weightarray2[0, i, :] /= np.sqrt(vk[i]**2+sourcePosWeight[2]**2)
-    return np.squeeze(vol.GetSpacing()[0]*np.sum(weightarray, axis=2)/(np.pi)), volOrigin, volOtherCorner, volDirection, vk, sourcePosWeight, weightarray2
+    return np.squeeze(vol.GetSpacing()[0]*np.sum(weightarray, axis=2)/(np.pi)), volOrigin, volOtherCorner, volDirection, vk, sourcePosWeight, weightarray[0,:,:]/np.pi
 
 
 def ComputeDCCsBPForOnePair(idx0, idx1, geometry, projection):
@@ -153,10 +154,11 @@ class ProjectionsPairBP():
 
     def LinesMomentsCorners(self):
         self.s0, self.s1 = ExtractSourcePosition(self.g0, self.g1)
-        self.sourceDir0 = self.s0-self.s1
-        self.sourceDir0 /= np.linalg.norm(self.sourceDir0)
-        if (np.dot(self.sourceDir0, np.array([1., 0., 0.])) < 0):
-            self.sourceDir0 *= -1
+        self.sourceDir0 = np.sign(self.g1.GetGantryAngles()[0]-self.g0.GetGantryAngles()[0])*(self.s1-self.s0)/np.linalg.norm(self.s1-self.s0)
+        # self.sourceDir0 = self.s0-self.s1
+        # self.sourceDir0 /= np.linalg.norm(self.sourceDir0)
+        # if (np.dot(self.sourceDir0, np.array([1., 0., 0.])) < 0):
+        #     self.sourceDir0 *= -1
         self.matRot0, self.matRot1 = ExtractRotationMatrice(self.g0, self.g1)
         self.n0 = self.matRot0[2, 0:3]
         self.n1 = self.matRot1[2, 0:3]
@@ -181,19 +183,22 @@ class ProjectionsPairBP():
         self.corners = None
         self.projIdxToCoord0, self.projIdxToCoord1 = ExtractProjCoorToFixedSysMatrice(self.g0, self.g1)
         self.CornersDet0 = []
-        self.CornersDet1 = [] 
+        self.CornersDet1 = []
+        self.BpDet0 = []
+        self.BpDet1 = []
         invMag_List = []
         for j in self.p0.GetOrigin()[1], self.p0.GetOrigin()[1]+size[1]:
-            for i in self.p0.GetOrigin()[0], self.p0.GetOrigin()[0]+size[0]:            
-                if self.R0 == 0: # flat detector
+            # for i in np.linspace(self.p0.GetOrigin()[0], self.p0.GetOrigin()[0]+size[0], self.p0.GetLargestPossibleRegion().GetSize()[0]):
+            for i in self.p0.GetOrigin()[0], self.p0.GetOrigin()[0]+size[0]:
+                if self.R0 == 0:  # flat detector
                     u = i
                     v = j
                     w = 0
-                else:  #cylindrical detector
+                else:  # cylindrical detector
                     self.theta = (i+self.dx0)/self.R0
                     u = self.R0*np.sin(self.theta)-self.dx0
                     v = j
-                    w = self.R0*(1-np.cos(self.theta)) 
+                    w = self.R0*(1-np.cos(self.theta))
                 idx = np.array((u, v, w, 1))
                 coord0 = self.projIdxToCoord0.dot(idx)
                 coord1 = self.projIdxToCoord1.dot(idx)
@@ -206,8 +211,10 @@ class ProjectionsPairBP():
                 invMag = np.dot(self.s1, self.sourceDir2)/np.dot(coord1Source, self.sourceDir2)
                 invMag_List.append(invMag)
                 planePos1 = np.dot(self.volDirection, self.s1-invMag*coord1Source)
-                self.CornersDet0.append(coord0[0:3])
-                self.CornersDet1.append(coord1[0:3])
+                self.CornersDet0.append(coord0)
+                self.CornersDet1.append(coord1)
+                self.BpDet0.append(planePos0[0:3])
+                self.BpDet1.append(planePos1[0:3])
                 if self.corners is None:
                     self.corners = planePos0[0:2]
                 else:
@@ -234,7 +241,7 @@ class ProjectionsPairBP():
         plt.legend()
         plt.title("Fbdcc on virtual detector")
         plt.show()
-    
+
     def PlotProjProfile(self, row):
         plt.figure()
         plt.plot(itk.GetArrayFromImage(self.p0)[0,row,:], label="p0")
@@ -244,7 +251,7 @@ class ProjectionsPairBP():
         plt.legend()
         plt.title("Proj profile row %d"%row)
         plt.show()
-    
+
     def PlotWeightProfile(self, row):
         plt.figure()
         plt.plot(self.weight0[0,row,:], label="w0")

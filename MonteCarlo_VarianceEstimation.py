@@ -1,6 +1,6 @@
 from RTKToArrayConversion import *
 from ExtendedConeBeamDCC import *
-from AllAcquisitionCDClass import *
+from AllAcquisitionCD_Beta_Class import *
 import sys
 import numpy as np
 
@@ -19,6 +19,7 @@ restot1 = []
 rescenter0 = []
 rescenter1 = []
 resmean = []
+resmeanabs = []
 for it in range(int(sys.argv[3])):
     I0=10**5
     dH2O=0.01879 #mm^-1 at 75 keV
@@ -42,45 +43,49 @@ for it in range(int(sys.argv[3])):
     resc0 = []
     resc1 = []
     resm = []
+    resmabs = []
     idx = []
-    for i in range(-2*AcquiDCC.axial_limit,2*AcquiDCC.axial_limit):
-        if ref == i+ref or i+ref <0 or i+ref >= proj_infos[2][2] or np.abs(geometry_array[2, ref]-geometry_array[2, ref+i]) <10**(-12):
+    for i in range(-AcquiDCC.axial_limit, AcquiDCC.axial_limit):
+        if ref == i+ref or i+ref < 0 or i+ref >= proj_infos[2][2] or np.abs(geometry_array[2, ref]-geometry_array[2, ref+i]) <10**(-12):
             pass
         else:
-            pair = ProjectionsPairMpoints(ref, i+ref , AcquiDCC.geometry, AcquiDCC.source_pos, AcquiDCC.mrot, AcquiDCC.fsm, AcquiDCC.projections, AcquiDCC.proj_infos, AcquiDCC.Ni)
-            pair.ComputeMPoints()
-            pair.ComputeEpipolarPlanes()
-            if len(np.where(pair.final_cond)[0]) >= 1:
+            pair = ProjectionsPairBeta(ref, i+ref, AcquiDCC.geometry, AcquiDCC.source_pos, AcquiDCC.mrot, AcquiDCC.fsm, AcquiDCC.projections, AcquiDCC.proj_infos, AcquiDCC.Ni, '0', 'Hann', 5)
+            pair.ComputeBetaRange()
+            if len(pair.beta) >= 1:
                 pair.ComputePairMoments()
                 idx.append(i+ref)
                 if type(pair.m0) == np.float64:
-                    res0.append()
-                    res1.append(np.mean(np.array([pair.m1])))
+                    res0.append(pair.m0)
+                    res1.append(pair.m1)
                     resc0.append(pair.m0)
                     resc1.append(pair.m1)
-                    resm.append(np.mean(np.array([pair.m0]))-np.mean(np.array([pair.m1])))
-                    
+                    resm.append((np.mean(np.array([pair.m0]))-np.mean(np.array([pair.m1]))))
+                    resmabs.append(np.mean(np.abs(np.array([pair.m0])-np.array([pair.m1]))))
                 else:
                     res0.append(np.mean(pair.m0))
                     res1.append(np.mean(pair.m1))
                     resc0.append(pair.m0[len(pair.m0)//2])
                     resc1.append(pair.m1[len(pair.m1)//2])
-                    resm.append(np.mean(pair.m0)-np.mean(pair.m1))
+                    resm.append((np.mean(pair.m0)-np.mean(pair.m1)))
+                    resmabs.append(np.mean(np.abs(pair.m0-pair.m1)))
     restot0.append(res0)
     restot1.append(res1)
     rescenter0.append(resc0)
     rescenter1.append(resc1)
     resmean.append(resm)
+    resmeanabs.append(resmabs)
 
 restot0ar = np.array(restot0)
 restot1ar = np.array(restot1)
 rescenter0ar = np.array(rescenter0)
 rescenter1ar = np.array(rescenter1)
 resmeanar = np.array(resmean)
+resmeanabsar = np.array(resmeanabs)
 np.savetxt(sys.argv[4]+"0.txt", np.var(restot0ar, axis=0))
 np.savetxt(sys.argv[4]+"1.txt", np.var(restot1ar, axis=0))
 np.savetxt(sys.argv[4]+"central_0.txt", np.var(rescenter0ar, axis=0))
 np.savetxt(sys.argv[4]+"central_1.txt", np.var(rescenter1ar, axis=0))
 np.savetxt(sys.argv[4]+"m0_m1.txt", np.var(resmeanar, axis=0))
+np.savetxt(sys.argv[4]+"m0_m1_abs.txt", np.var(resmeanabsar, axis=0))
 
 print("This program ended successfully")

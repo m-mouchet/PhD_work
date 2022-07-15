@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from IntegrationMethods import DefriseIntegrationHilbertKernelVec, TrapIntegrationAndKingModelLargeInterval
+from IntegrationMethods import DefriseIntegrationHilbertKernelVec, TrapIntegrationAndKingModelSmallInterval
 
 """ def ComputePlaneEquation(A, B, C):  # compute the cartesian equation of the plane formed by the three point ABC
     AB = A-B
@@ -99,32 +99,67 @@ def ComputeVarianceAllPlanes(gamma, v, proj_var, proj_interp_var, interpolation_
         pass
     else:
         for k in range(v.shape[1]):
-            for l in range(k+1, v.shape[1]):
-                #first term
-                ija = floor_indexes[:, k] == floor_indexes[:, l]
-                wia = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ija]/(np.sinc((gamma_s-gamma[ija])/np.pi)*np.sqrt(D**2+v[ija, k]**2))
-                wja = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ija]/(np.sinc((gamma_s-gamma[ija])/np.pi)*np.sqrt(D**2+v[ija, l]**2))
-                varija = (1-interpolation_weight[ija, k])*(1-interpolation_weight[ija, l])*proj_var[floor_indexes[ija, k], ija]
+            #first term
+            ija = floor_indexes[:, k, None] == floor_indexes[:, k+1:]
+            if ija.shape[1] != 0:
+                wia = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*np.array([coeffs]*ija.shape[1]).T[ija]/(np.sinc((gamma_s-np.array([gamma]*ija.shape[1]).T[ija])/np.pi)*np.sqrt(D**2+np.array([v[:, k]]*ija.shape[1]).T[ija]**2))
+                wja = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*np.array([coeffs]*ija.shape[1]).T[ija]/(np.sinc((gamma_s-np.array([gamma]*ija.shape[1]).T[ija])/np.pi)*np.sqrt(D**2+v[:, k+1:][ija]**2))
+                varija = (1-np.array([interpolation_weight[:, k]]*ija.shape[1]).T[ija])*(1-interpolation_weight[:, k+1:][ija])*np.array([proj_var.T]*ija.shape[1]).T[np.array([floor_indexes[:, k]]*ija.shape[1]).T[ija],ija]
                 cov_part += np.sum(wia*wja*varija)
-                #second term
-                ijb = floor_indexes[:, k] == ceil_indexes[:, l]
-                wib = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijb]/(np.sinc((gamma_s-gamma[ijb])/np.pi)*np.sqrt(D**2+v[ijb, k]**2))
-                wjb = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijb]/(np.sinc((gamma_s-gamma[ijb])/np.pi)*np.sqrt(D**2+v[ijb, l]**2))
-                varijb = (1-interpolation_weight[ijb, k])*interpolation_weight[ijb, l]*proj_var[floor_indexes[ijb, k], ijb]
+            #second term
+            ijb = floor_indexes[:, k, None] == ceil_indexes[:, k+1:]
+            if ijb.shape[1] != 0:
+                wib = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*np.array([coeffs]*ijb.shape[1]).T[ijb]/(np.sinc((gamma_s-np.array([gamma]*ijb.shape[1]).T[ijb])/np.pi)*np.sqrt(D**2+np.array([v[:, k]]*ijb.shape[1]).T[ijb]**2))
+                wjb = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*np.array([coeffs]*ijb.shape[1]).T[ijb]/(np.sinc((gamma_s-np.array([gamma]*ijb.shape[1]).T[ijb])/np.pi)*np.sqrt(D**2+v[:, k+1:][ijb]**2))
+                varijb = (1-np.array([interpolation_weight[:, k]]*ijb.shape[1]).T[ijb])*interpolation_weight[:, k+1:][ijb]*np.array([proj_var.T]*ijb.shape[1]).T[np.array([floor_indexes[:, k]]*ijb.shape[1]).T[ijb],ijb]
                 cov_part += np.sum(wib*wjb*varijb)
-                #third term
-                ijc = ceil_indexes[:, k] == floor_indexes[:, l]
-                wic = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijc]/(np.sinc((gamma_s-gamma[ijc])/np.pi)*np.sqrt(D**2+v[ijc, k]**2))
-                wjc = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijc]/(np.sinc((gamma_s-gamma[ijc])/np.pi)*np.sqrt(D**2+v[ijc, l]**2))
-                varijc = interpolation_weight[ijc, k]*(1-interpolation_weight[ijc, l])*proj_var[ceil_indexes[ijc, k], ijc]
+            #third term
+            ijc = ceil_indexes[:, k, None] == floor_indexes[:, k+1:]
+            if ijc.shape[1] != 0:
+                wic = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*np.array([coeffs]*ijc.shape[1]).T[ijc]/(np.sinc((gamma_s-np.array([gamma]*ijc.shape[1]).T[ijc])/np.pi)*np.sqrt(D**2+np.array([v[:, k]]*ijc.shape[1]).T[ijc]**2))
+                wjc = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*np.array([coeffs]*ijc.shape[1]).T[ijc]/(np.sinc((gamma_s-np.array([gamma]*ijc.shape[1]).T[ijc])/np.pi)*np.sqrt(D**2+v[:, k+1:][ijc]**2))
+                varijc = np.array([interpolation_weight[:, k]]*ijc.shape[1]).T[ijc]*(1-interpolation_weight[:, k+1:][ijc])*np.array([proj_var.T]*ijc.shape[1]).T[np.array([ceil_indexes[:, k]]*ijc.shape[1]).T[ijc],ijc]
                 cov_part += np.sum(wic*wjc*varijc)
-                #fourth term
-                ijd = ceil_indexes[:, k] == ceil_indexes[:, l]
-                wid = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijd]/(np.sinc((gamma_s-gamma[ijd])/np.pi)*np.sqrt(D**2+v[ijd, k]**2))
-                wjd = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijd]/(np.sinc((gamma_s-gamma[ijd])/np.pi)*np.sqrt(D**2+v[ijd, l]**2))
-                varijd = interpolation_weight[ijd, k]*interpolation_weight[ijd, l]*proj_var[ceil_indexes[ijd, k], ijd]
+            #fourth term
+            ijd = ceil_indexes[:, k, None] == ceil_indexes[:, k+1:]
+            if ijd.shape[1] != 0:
+                wid = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*np.array([coeffs]*ijd.shape[1]).T[ijd]/(np.sinc((gamma_s-np.array([gamma]*ijd.shape[1]).T[ijd])/np.pi)*np.sqrt(D**2+np.array([v[:, k]]*ijd.shape[1]).T[ijd]**2))
+                wjd = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*np.array([coeffs]*ijd.shape[1]).T[ijd]/(np.sinc((gamma_s-np.array([gamma]*ijd.shape[1]).T[ijd])/np.pi)*np.sqrt(D**2+v[:, k+1:][ijd]**2))
+                varijd = np.array([interpolation_weight[:, k]]*ijd.shape[1]).T[ijd]*interpolation_weight[:, k+1:][ijd]*np.array([proj_var.T]*ijd.shape[1]).T[np.array([ceil_indexes[:, k]]*ijd.shape[1]).T[ijd],ijd]
                 cov_part += np.sum(wid*wjd*varijd)
+            # for l in range(k+1, v.shape[1]):
+            #     #first term
+            #     ija = floor_indexes[:, k] == floor_indexes[:, l]
+            #     wia = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ija]/(np.sinc((gamma_s-gamma[ija])/np.pi)*np.sqrt(D**2+v[ija, k]**2))
+            #     wja = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ija]/(np.sinc((gamma_s-gamma[ija])/np.pi)*np.sqrt(D**2+v[ija, l]**2))
+            #     varija = (1-interpolation_weight[ija, k])*(1-interpolation_weight[ija, l])*proj_var[floor_indexes[ija, k], ija]
+            #     cov_part += np.sum(wia*wja*varija)
+            #     #second term
+            #     ijb = floor_indexes[:, k] == ceil_indexes[:, l]
+            #     wib = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijb]/(np.sinc((gamma_s-gamma[ijb])/np.pi)*np.sqrt(D**2+v[ijb, k]**2))
+            #     wjb = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijb]/(np.sinc((gamma_s-gamma[ijb])/np.pi)*np.sqrt(D**2+v[ijb, l]**2))
+            #     varijb = (1-interpolation_weight[ijb, k])*interpolation_weight[ijb, l]*proj_var[floor_indexes[ijb, k], ijb]
+            #     cov_part += np.sum(wib*wjb*varijb)
+            #     #third term
+            #     ijc = ceil_indexes[:, k] == floor_indexes[:, l]
+            #     wic = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijc]/(np.sinc((gamma_s-gamma[ijc])/np.pi)*np.sqrt(D**2+v[ijc, k]**2))
+            #     wjc = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijc]/(np.sinc((gamma_s-gamma[ijc])/np.pi)*np.sqrt(D**2+v[ijc, l]**2))
+            #     varijc = interpolation_weight[ijc, k]*(1-interpolation_weight[ijc, l])*proj_var[ceil_indexes[ijc, k], ijc]
+            #     cov_part += np.sum(wic*wjc*varijc)
+            #     #fourth term
+            #     ijd = ceil_indexes[:, k] == ceil_indexes[:, l]
+            #     wid = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijd]/(np.sinc((gamma_s-gamma[ijd])/np.pi)*np.sqrt(D**2+v[ijd, k]**2))
+            #     wjd = np.sign(gamma_s)*np.pi/np.sqrt(eb[0]**2+eb[2]**2)*dg*D*coeffs[ijd]/(np.sinc((gamma_s-gamma[ijd])/np.pi)*np.sqrt(D**2+v[ijd, l]**2))
+            #     varijd = interpolation_weight[ijd, k]*interpolation_weight[ijd, l]*proj_var[ceil_indexes[ijd, k], ijd]
+            #     cov_part += np.sum(wid*wjd*varijd)
     return simple_var, (var_part+2*cov_part)/len(simple_var)**2
+
+
+def l(gamma, gamma_s, D, v, alpha, dv):
+    return np.arctan((v+dv)*np.abs(np.cos(alpha)/np.sin(gamma-gamma_s))/D - np.sin(alpha)/np.tan(gamma-gamma_s))
+
+def u(gamma, gamma_s, D, v, alpha, dv):
+    return np.arctan((v-dv)*np.abs(np.cos(alpha)/np.sin(gamma-gamma_s))/D - np.sin(alpha)/np.tan(gamma-gamma_s))
 
 
 class ProjectionsPairMpoints():
@@ -202,7 +237,7 @@ class ProjectionsPairMpoints():
 
     def ComputeEpipolarPlanes(self):
         # compute eb, eb0, eb1
-        self.eb = np.sign(self.s1[1]-self.s0[1])*(self.s1-self.s0)/np.linalg.norm(self.s1-self.s0) # pointing in the highest direction always
+        self.eb = np.sign(self.g1[2]-self.g0[2])*(self.s1-self.s0)/np.linalg.norm(self.s1-self.s0) # pointing in the highest direction always
         self.eb0 = np.dot(self.volDir0, self.eb)
         self.eb1 = np.dot(self.volDir1, self.eb)
 
@@ -251,18 +286,19 @@ class ProjectionsPairMpoints():
         self.v0 = self.sdd*(-self.en0[:, 0]*np.sin(np.array([self.gamma0]*self.en0.shape[0]).T)+self.en0[:, 2]*np.cos(np.array([self.gamma0]*self.en0.shape[0]).T))/self.en0[:, 1]
         self.v1 = self.sdd*(-self.en1[:, 0]*np.sin(np.array([self.gamma1]*self.en1.shape[0]).T)+self.en1[:, 2]*np.cos(np.array([self.gamma1]*self.en1.shape[0]).T))/self.en1[:, 1]
 
-        dv = self.v_det0[1]-self.v_det0[0]
-        floor_indexes0 = np.floor((self.v0-np.min(self.v_det0))/dv).astype(int)
+        dv = np.abs(self.v_det0[1]-self.v_det0[0])
+        floor_indexes0 = np.floor((self.proj_direction[1, 1]*self.v0-np.min(self.proj_direction[1, 1]*self.v_det0))/dv).astype(int)
         ceil_indexes0 = floor_indexes0 + 1
-        interpolation_weight0 = (self.v0-self.v_det0[floor_indexes0])/dv
-        floor_indexes1 = np.floor((self.v1-np.min(self.v_det1))/dv).astype(int)
+        interpolation_weight0 = (self.proj_direction[1, 1]*self.v0-self.proj_direction[1, 1]*self.v_det0[floor_indexes0])/dv
+        floor_indexes1 = np.floor((self.proj_direction[1, 1]*self.v1-np.min(self.proj_direction[1, 1]*self.v_det1))/dv).astype(int)
         ceil_indexes1 = floor_indexes1 + 1
-        interpolation_weight1 = (self.v1-self.v_det1[floor_indexes1])/dv
-        fixed_indexes = np.tile(np.arange(self.v0.shape[0]),(self.v0.shape[1],1)).T
+        interpolation_weight1 = (self.proj_direction[1, 1]*self.v1-self.proj_direction[1, 1]*self.v_det1[floor_indexes1])/dv
+        fixed_indexes = np.tile(np.arange(self.v0.shape[0]), (self.v0.shape[1], 1)).T
         self.proj_interp0=self.p0.T[fixed_indexes, floor_indexes0]*(1-interpolation_weight0) + self.p0.T[fixed_indexes, ceil_indexes0]*interpolation_weight0
         self.proj_interp1=self.p1.T[fixed_indexes, floor_indexes1]*(1-interpolation_weight1) + self.p1.T[fixed_indexes, ceil_indexes1]*interpolation_weight1
         self.proj_interp_var0=self.proj_var0.T[fixed_indexes, floor_indexes0]*(1-interpolation_weight0)**2 + self.proj_var0.T[fixed_indexes, ceil_indexes0]*interpolation_weight0**2
         self.proj_interp_var1=self.proj_var1.T[fixed_indexes, floor_indexes1]*(1-interpolation_weight1)**2 + self.proj_var1.T[fixed_indexes, ceil_indexes1]*interpolation_weight1**2
+
 
         self.gamma_s0 = np.arctan(-self.eb0[0]/self.eb0[2])
         self.gamma_s1 = np.arctan(-self.eb1[0]/self.eb1[2])
@@ -271,16 +307,19 @@ class ProjectionsPairMpoints():
         self.gamma_e0 = np.arctan(-self.ee0[:, 0]/self.ee0[:, 2])
         self.gamma_e1 = np.arctan(-self.ee1[:, 0]/self.ee1[:, 2])
 
-        self.m0, self.coeffs0 = DefriseIntegrationHilbertKernelVec(self.gamma_s0, self.gamma0, self.proj_interp0, self.v0, self.eb0, self.sdd, "Hann", 10)
-        self.m1, self.coeffs1 = DefriseIntegrationHilbertKernelVec(self.gamma_s1, self.gamma1, self.proj_interp1, self.v1, self.eb1, self.sdd, "Hann", 10)
+        self.mhr0, self.coeffshr0 = DefriseIntegrationHilbertKernelVec(self.gamma_s0, self.gamma0, self.proj_interp0, self.v0, np.sqrt(self.eb0[0]**2+self.eb0[2]**2), self.sdd, "Rect", 1)
+        self.mhr1, self.coeffshr1 = DefriseIntegrationHilbertKernelVec(self.gamma_s1, self.gamma1, self.proj_interp1, self.v1, np.sqrt(self.eb1[0]**2+self.eb1[2]**2), self.sdd, "Rect", 1)
+
+        self.mhh0, self.coeffshh0 = DefriseIntegrationHilbertKernelVec(self.gamma_s0, self.gamma0, self.proj_interp0, self.v0, np.sqrt(self.eb0[0]**2+self.eb0[2]**2), self.sdd, "Hann", 5)
+        self.mhh1, self.coeffshh1 = DefriseIntegrationHilbertKernelVec(self.gamma_s1, self.gamma1, self.proj_interp1, self.v1, np.sqrt(self.eb1[0]**2+self.eb1[2]**2), self.sdd, "Hann", 5)
+
+        self.mk0 = TrapIntegrationAndKingModelSmallInterval(self.proj_interp0, self.gamma0, self.v0, self.gamma_s0, self.eb0, self.sdd)
+        self.mk1 = TrapIntegrationAndKingModelSmallInterval(self.proj_interp1, self.gamma1, self.v1, self.gamma_s1, self.eb1, self.sdd)
 
         #compute variance over all moments
         # self.var0, self.var1, self.tot_var0, self.tot_var1 = 0, 0, 0, 0
-        self.var0, self.tot_var0 = ComputeVarianceAllPlanes(self.gamma0, self.proj_direction[1, 1]*self.v0, self.proj_var0, self.proj_interp_var0, interpolation_weight0, floor_indexes0, ceil_indexes0, self.gamma_s0, self.eb0, self.sdd, self.coeffs0)
-        self.var1, self.tot_var1 = ComputeVarianceAllPlanes(self.gamma1, self.proj_direction[1, 1]*self.v1, self.proj_var1, self.proj_interp_var1, interpolation_weight1, floor_indexes1, ceil_indexes1, self.gamma_s1, self.eb1, self.sdd, self.coeffs1)
-
-        # self.m0 = TrapIntegrationAndKingModelLargeInterval(self.eb0, self.ee0, self.en0, self.gamma_e0, self.gamma_s0, self.gamma0, self.proj_interp0, self.v0, self.vp0, self.sdd)
-        # self.m1 = TrapIntegrationAndKingModelLargeInterval(self.eb1, self.ee1, self.en1, self.gamma_e1, self.gamma_s1, self.gamma1, self.proj_interp1, self.v1, self.vp1, self.sdd)
+        # self.var0, self.tot_var0 = ComputeVarianceAllPlanes(self.gamma0, self.v0, self.proj_var0, self.proj_interp_var0, interpolation_weight0, floor_indexes0, ceil_indexes0, self.gamma_s0, self.eb0, self.sdd, self.coeffs0)
+        # self.var1, self.tot_var1 = ComputeVarianceAllPlanes(self.gamma1, self.v1, self.proj_var1, self.proj_interp_var1, interpolation_weight1, floor_indexes1, ceil_indexes1, self.gamma_s1, self.eb1, self.sdd, self.coeffs1)
 
     def PlotPairMoments(self):
         plt.figure()
@@ -314,17 +353,17 @@ class ProjectionsPairMpoints():
 
 
 class ProjectionsPairBeta():
-    def __init__(self, idx0, idx1, geometry, source_pos, mrot, fsm, projections, proj_infos, Ni):
+    def __init__(self, idx0, idx1, geometry, source_pos, mrot, fsm, projections, proj_infos, Ni, variance, kernel, bandwidth):
         self.idx0 = idx0
         self.idx1 = idx1
         self.g0 = geometry[:, idx0]
         self.g1 = geometry[:, idx1]
         self.s0 = source_pos[idx0, :]
         self.s1 = source_pos[idx1, :]
-        self.rm0 = mrot[idx0]
-        self.rm1 = mrot[idx1]
-        self.fm0 = fsm[idx0]
-        self.fm1 = fsm[idx1]
+        # self.rm0 = mrot[idx0]
+        # self.rm1 = mrot[idx1]
+        # self.fm0 = fsm[idx0]
+        # self.fm1 = fsm[idx1]
         self.p0 = projections[idx0, :, :]
         self.p1 = projections[idx1, :, :]
         # self.Ni0 = np.array([Ni[:, idx0]]*self.p0.shape[0])
@@ -335,12 +374,16 @@ class ProjectionsPairBeta():
         # self.proj_var1 = 2294.5**2/(np.array([Ni[:, idx1]]*self.p1.shape[0])*np.exp(-self.p1/2294.5))
         self.proj_var0 = 1/(10**5*np.exp(-0.01879*self.p0)*0.01879**2)
         self.proj_var1 = 1/(10**5*np.exp(-0.01879*self.p1)*0.01879**2)
+        self.variance = variance
+        self.kernel = kernel
+        self.bandwidth = bandwidth
 
         self.proj_spacing = proj_infos[0]
         self.proj_origin = proj_infos[1]
         self.proj_size = proj_infos[2]
         self.proj_direction = proj_infos[3]
 
+        # self.spiral_dir = spiral_dir
         self.sid = geometry[0, idx0]
         self.sdd = geometry[1, idx0]
         self.R_det = geometry[9, idx0]
@@ -348,128 +391,88 @@ class ProjectionsPairBeta():
         self.v_det1 = self.proj_origin[1] + self.g1[4]-self.g1[8] + np.arange(self.proj_size[1])*self.proj_spacing[1]*self.proj_direction[1, 1]
         self.gamma0 = (self.proj_origin[0] + self.g0[3]-self.g0[7] + np.arange(self.proj_size[0])*self.proj_spacing[0]*self.proj_direction[0, 0])/self.R_det
         self.gamma1 = (self.proj_origin[0] + self.g1[3]-self.g1[7] + np.arange(self.proj_size[0])*self.proj_spacing[0]*self.proj_direction[0, 0])/self.R_det
-        self.volDir0 = np.vstack((np.array([np.cos(self.g0[2]), 0, -np.sin(self.g0[2])]), np.array([0., 1., 0.]), np.array([np.sin(self.g0[2]), 0, np.cos(self.g0[2])])))
-        self.volDir1 = np.vstack((np.array([np.cos(self.g1[2]), 0, -np.sin(self.g1[2])]), np.array([0., 1., 0.]), np.array([np.sin(self.g1[2]), 0, np.cos(self.g1[2])])))
-        self.Det0 = np.zeros((self.proj_size[0], self.proj_size[1], 3))
-        self.Det1 = np.zeros((self.proj_size[0], self.proj_size[1], 3))
-        self.Det0[:, :, 0] += np.array([(self.sid-self.R_det*np.cos(self.gamma0))*np.sin(self.g0[2]) + self.R_det*np.sin(self.gamma0)*np.cos(self.g0[2])]*self.proj_size[1]).T
-        self.Det0[:, :, 1] += np.ones(self.Det0[:, :, 1].shape)*(self.v_det0 + self.g0[8])
-        self.Det0[:, :, 2] += np.array([(self.sid-self.R_det*np.cos(self.gamma0))*np.cos(self.g0[2]) - self.R_det*np.sin(self.gamma0)*np.sin(self.g0[2])]*self.proj_size[1]).T
-        self.Det1[:, :, 0] += np.array([(self.sid-self.R_det*np.cos(self.gamma1))*np.sin(self.g1[2]) + self.R_det*np.sin(self.gamma1)*np.cos(self.g1[2])]*self.proj_size[1]).T
-        self.Det1[:, :, 1] += np.ones(self.Det1[:, :, 1].shape)*(self.v_det1 + self.g1[8])
-        self.Det1[:, :, 2] += np.array([(self.sid-self.R_det*np.cos(self.gamma1))*np.cos(self.g1[2]) - self.R_det*np.sin(self.gamma1)*np.sin(self.g1[2])]*self.proj_size[1]).T
-
-    def ComputeEpipolarPlanes(self):
-        #Compute vector for the centeral plane
-        self.eb = np.sign(self.s1[1]-self.s0[1])*(self.s1-self.s0)/np.linalg.norm(self.s1-self.s0) # pointing in the highest direction always
-        if ((self.g1[2]-self.g0[2])/2)%(2*np.pi) >= np.pi/2 and ((self.g1[2]-self.g0[2])/2)%(2*np.pi) <= 3*np.pi/2:
-            self.lambda_bar = (self.g1[2]+self.g0[2])/2
-        else:
-            self.lambda_bar = (self.g1[2]+self.g0[2])/2 + np.pi
-        self.ee0 = np.cos(self.lambda_bar)*np.array([0., 0., 1.]) + np.sin(self.lambda_bar)*np.array([1., 0., 0.])
-        self.en0 = np.cross(self.ee0, self.eb)
-        self.alpha = np.arccos(np.dot(self.eb, np.cross(np.array([0., 1., 0.]), self.ee0)))
-        self.beta = np.linspace(-np.pi/2+self.proj_spacing[1]/(2*self.R_det), np.pi/2-self.proj_spacing[1]/(2*self.R_det), int(np.pi//(self.proj_spacing[1]/self.R_det)))
-
-        # Compute vectors for all possible planes
-        self.ee_temp = np.array([np.sin(self.lambda_bar)*np.cos(self.beta)-np.cos(self.lambda_bar)*np.sin(self.alpha)*np.sin(self.beta), np.cos(self.alpha)*np.sin(self.beta), np.cos(self.lambda_bar)*np.cos(self.beta)+np.sin(self.lambda_bar)*np.sin(self.alpha)*np.sin(self.beta)])
-        self.en_temp = np.array([-np.sin(self.lambda_bar)*np.sin(self.beta)-np.cos(self.lambda_bar)*np.sin(self.alpha)*np.cos(self.beta), np.cos(self.alpha)*np.cos(self.beta), -np.cos(self.lambda_bar)*np.sin(self.beta) + np.sin(self.lambda_bar)*np.sin(self.alpha)*np.cos(self.beta)])
-
-        self.gamma_n_temp0 = np.arctan((np.tan(self.g0[2])-self.en_temp[0, :]/self.en_temp[2, :])/(1+self.en_temp[0, :]*np.tan(self.g0[2])/self.en_temp[2, :]))
-        self.gamma_n_temp1 = np.arctan((np.tan(self.g1[2])-self.en_temp[0, :]/self.en_temp[2, :])/(1+self.en_temp[0, :]*np.tan(self.g1[2])/self.en_temp[2, :]))
-
-        extremum_in_range0 = np.logical_and(np.min(self.gamma0)<=self.gamma_n_temp0, self.gamma_n_temp0<=np.max(self.gamma0))
-        x0 = np.array([[self.gamma0[0]]*len(self.gamma_n_temp0), [0.5*(self.gamma0[0]+self.gamma0[-1])]*len(self.gamma_n_temp0), [self.gamma0[-1]]*len(self.gamma_n_temp0)]).T
-        x0[extremum_in_range0, 1] = self.gamma_n_temp0[extremum_in_range0]
-        extremum_in_range1 = np.logical_and(np.min(self.gamma1)<=self.gamma_n_temp1, self.gamma_n_temp1<=np.max(self.gamma1))
-        x1 = np.array([[self.gamma1[0]]*len(self.gamma_n_temp1), [0.5*(self.gamma1[0]+self.gamma1[-1])]*len(self.gamma_n_temp1), [self.gamma1[-1]]*len(self.gamma_n_temp1)]).T
-        x1[extremum_in_range1, 1] = self.gamma_n_temp1[extremum_in_range1]
-
-        temp_v0 = self.sdd*(-np.sin(x0-self.g0[2])*np.array([self.en_temp[0, :]]*3).T+np.cos(x0-self.g0[2])*np.array([self.en_temp[2, :]]*3).T)/np.array([self.en_temp[1, :]]*3).T
-        temp_v1 = self.sdd*(-np.sin(x1-self.g1[2])*np.array([self.en_temp[0, :]]*3).T+np.cos(x1-self.g1[2])*np.array([self.en_temp[2, :]]*3).T)/np.array([self.en_temp[1, :]]*3).T
-
-        c0_min = np.logical_and(np.min(self.v_det0) < np.min(temp_v0, axis=1), np.min(temp_v0, axis=1) < np.max(self.v_det0))
-        c0_max = np.logical_and(np.min(self.v_det0) < np.max(temp_v0, axis=1), np.max(temp_v0, axis=1) < np.max(self.v_det0))
-        c1_min = np.logical_and(np.min(self.v_det1) < np.min(temp_v1, axis=1), np.min(temp_v1, axis=1) < np.max(self.v_det1))
-        c1_max = np.logical_and(np.min(self.v_det1) < np.max(temp_v1, axis=1), np.max(temp_v1, axis=1) < np.max(self.v_det1))
-        c0_cond = np.logical_and(c0_min, c0_max)
-        c1_cond = np.logical_and(c1_min, c1_max)
-        self.final_cond = np.logical_and(c0_cond, c1_cond)
-
-        self.beta_accepted = self.beta[self.final_cond].squeeze()
-        self.en = self.en_temp[:, self.final_cond].squeeze()
-        self.ee = self.ee_temp[:, self.final_cond].squeeze()
-        self.gamma_n0 = self.gamma_n_temp0[self.final_cond].squeeze()
-        self.gamma_n1 = self.gamma_n_temp1[self.final_cond].squeeze()
+        # self.volDir0 = np.vstack((np.array([np.cos(self.g0[2]), 0, -np.sin(self.g0[2])]), np.array([0., 1., 0.]), np.array([np.sin(self.g0[2]), 0, np.cos(self.g0[2])])))
+        # self.volDir1 = np.vstack((np.array([np.cos(self.g1[2]), 0, -np.sin(self.g1[2])]), np.array([0., 1., 0.]), np.array([np.sin(self.g1[2]), 0, np.cos(self.g1[2])])))
+        # self.Det0 = np.zeros((self.proj_size[0], self.proj_size[1], 3))
+        # self.Det1 = np.zeros((self.proj_size[0], self.proj_size[1], 3))
+        # self.Det0[:, :, 0] += np.array([(self.sid-self.R_det*np.cos(self.gamma0))*np.sin(self.g0[2]) + self.R_det*np.sin(self.gamma0)*np.cos(self.g0[2])]*self.proj_size[1]).T
+        # self.Det0[:, :, 1] += np.ones(self.Det0[:, :, 1].shape)*(self.v_det0 + self.g0[8])
+        # self.Det0[:, :, 2] += np.array([(self.sid-self.R_det*np.cos(self.gamma0))*np.cos(self.g0[2]) - self.R_det*np.sin(self.gamma0)*np.sin(self.g0[2])]*self.proj_size[1]).T
+        # self.Det1[:, :, 0] += np.array([(self.sid-self.R_det*np.cos(self.gamma1))*np.sin(self.g1[2]) + self.R_det*np.sin(self.gamma1)*np.cos(self.g1[2])]*self.proj_size[1]).T
+        # self.Det1[:, :, 1] += np.ones(self.Det1[:, :, 1].shape)*(self.v_det1 + self.g1[8])
+        # self.Det1[:, :, 2] += np.array([(self.sid-self.R_det*np.cos(self.gamma1))*np.cos(self.g1[2]) - self.R_det*np.sin(self.gamma1)*np.sin(self.g1[2])]*self.proj_size[1]).T
 
     def ComputeBetaRange(self):
         #Compute vector for the centeral plane
-        self.eb = np.sign(self.s1[1]-self.s0[1])*(self.s1-self.s0)/np.linalg.norm(self.s1-self.s0) # pointing in the highest direction always
-        if ((self.g1[2]-self.g0[2])/2)%(2*np.pi) >= np.pi/2 and ((self.g1[2]-self.g0[2])/2)%(2*np.pi) <= 3*np.pi/2:
+        # self.eb = np.sign(self.s1[1]-self.s0[1])*(self.s1-self.s0)/np.linalg.norm(self.s1-self.s0) # pointing in the highest direction always
+        if np.pi/2 < ((self.g1[2]-self.g0[2])/2)%(2*np.pi) < 3*np.pi/2:
             self.lambda_bar = (self.g1[2]+self.g0[2])/2
+            self.eb = np.sign(np.sin((self.g0[2]-self.g1[2])/2))*(self.s0-self.s1)/np.linalg.norm(self.s1-self.s0)
         else:
             self.lambda_bar = (self.g1[2]+self.g0[2])/2 + np.pi
+            self.eb = np.sign(np.sin((self.g1[2]-self.g0[2])/2))*(self.s0-self.s1)/np.linalg.norm(self.s1-self.s0)
         self.ee0 = np.cos(self.lambda_bar)*np.array([0., 0., 1.]) + np.sin(self.lambda_bar)*np.array([1., 0., 0.])
-        self.en0 = np.cross(self.ee0, self.eb)
-        self.alpha = np.arccos(np.dot(self.eb,np.cross(np.array([0., 1., 0.]),self.ee0)))
+        # self.etemp = np.cross(np.array([0., 1., 0.]), self.ee0)
+        # self.alpha = np.arccos(np.dot(self.eb,np.cross(np.array([0, 1, 0]), self.ee0)))
+        if np.abs(self.eb[1]/np.sqrt(self.eb[0]**2+self.eb[2]**2))>1:
+            self.beta = []
+        else:
+            self.alpha = np.arcsin(self.eb[1]/np.sqrt(self.eb[0]**2+self.eb[2]**2))
+            self.en0 = np.cross(self.ee0, self.eb)
+            self.gamma_s0 = ((self.g0[2]-self.g1[2])/2)%np.pi-np.pi/2
+            self.gamma_s1 = ((self.g1[2]-self.g0[2])/2)%np.pi-np.pi/2
+            if self.gamma_s0 == 0 and self.gamma_s1 == 0:
+                self.gamma_s0 +=10**(-15)
+                self.gamma_s1 -=10**(-15)
+            # self.gamma_s0 = np.arctan((np.tan(self.g0[2])-self.eb[0]/self.eb[2])/(1+np.tan(self.g0[2])*self.eb[0]/self.eb[2]))
+            # self.gamma_s1 = np.arctan((np.tan(self.g1[2])-self.eb[0]/self.eb[2])/(1+np.tan(self.g1[2])*self.eb[0]/self.eb[2]))
 
-        self.beta = []
-        self.b0 = np.arctan(-(np.max(self.v_det0)/self.sdd+np.tan(self.alpha)*np.sin(self.lambda_bar+self.gamma0-self.g0[2]))*np.cos(self.alpha)/np.cos(self.lambda_bar+self.gamma0-self.g0[2]))
-        self.u0 = np.arctan(-(np.min(self.v_det0)/self.sdd+np.tan(self.alpha)*np.sin(self.lambda_bar+self.gamma0-self.g0[2]))*np.cos(self.alpha)/np.cos(self.lambda_bar+self.gamma0-self.g0[2]))
-        self.b1 = np.arctan(-(np.max(self.v_det1)/self.sdd+np.tan(self.alpha)*np.sin(self.lambda_bar+self.gamma1-self.g1[2]))*np.cos(self.alpha)/np.cos(self.lambda_bar+self.gamma1-self.g1[2]))
-        self.u1 = np.arctan(-(np.min(self.v_det1)/self.sdd+np.tan(self.alpha)*np.sin(self.lambda_bar+self.gamma1-self.g1[2]))*np.cos(self.alpha)/np.cos(self.lambda_bar+self.gamma1-self.g1[2]))
-        
-        if int(np.abs(np.sum(np.sign(self.b0))))==len(self.b0) and int(np.abs(np.sum(np.sign(self.u0))))==len(self.u0) and self.b0[0]<0:
-            beta_low = np.max((self.b0,self.b1))
-            beta_up = np.min((self.u0,self.u1))
+            self.beta = []
+            l0 = l(self.gamma0, self.gamma_s0, self.g0[1], np.min(self.v_det0), self.alpha, self.proj_size[1]/64)
+            u0 = u(self.gamma0, self.gamma_s0, self.g0[1], np.max(self.v_det0), self.alpha, self.proj_size[1]/64)
+            l1 = l(self.gamma1, self.gamma_s1, self.g1[1], np.min(self.v_det1), self.alpha, self.proj_size[1]/64)
+            u1 = u(self.gamma1, self.gamma_s1, self.g1[1], np.max(self.v_det1), self.alpha, self.proj_size[1]/64)
+            beta_low = np.max((np.max(l0),np.max(l1)))
+            beta_up = np.min((np.min(u0),np.min(u1)))
+            
             if beta_up - beta_low > 0:
                 self.beta = np.linspace(beta_low, beta_up, int((beta_up - beta_low)//(self.proj_spacing[1]/self.R_det)))
-        elif int(np.abs(np.sum(np.sign(self.b0))))==len(self.b0) and int(np.abs(np.sum(np.sign(self.u0))))==len(self.u0) and self.b0[0]>0:
-            beta_low = np.max((self.u0,self.u1))
-            beta_up = np.min((self.b0,self.b1))
-            if beta_up-beta_low > 0:
-                self.beta = np.linspace(beta_low , beta_up, int((beta_up - beta_low)//(self.proj_spacing[1]/self.R_det)))
-        elif (int(np.abs(np.sum(np.sign(self.b0)))) != len(self.b0) or int(np.abs(np.sum(np.sign(self.u0)))) != len(self.b0)) and np.sign(self.b0[0])!=np.sign(self.u0[0]):
-            beta_low = -np.min((np.abs(self.b0),np.abs(self.b1)))
-            beta_up = np.min((np.abs(self.u0),np.abs(self.u1)))
-            if beta_up-beta_low > 0:
-                self.beta = np.linspace(beta_low , beta_up, int((beta_up - beta_low)//(self.proj_spacing[1]/self.R_det)))
-        # else:
-            # print("Other cases that I am not aware of")
-        
-        if len(self.beta)>=1:
-            self.ee = np.array([np.sin(self.lambda_bar)*np.cos(self.beta)-np.cos(self.lambda_bar)*np.sin(self.alpha)*np.sin(self.beta), np.cos(self.alpha)*np.sin(self.beta), np.cos(self.lambda_bar)*np.cos(self.beta)+np.sin(self.lambda_bar)*np.sin(self.alpha)*np.sin(self.beta)])
-            self.en = np.array([-np.sin(self.lambda_bar)*np.sin(self.beta)-np.cos(self.lambda_bar)*np.sin(self.alpha)*np.cos(self.beta), np.cos(self.alpha)*np.cos(self.beta), -np.cos(self.lambda_bar)*np.sin(self.beta) + np.sin(self.lambda_bar)*np.sin(self.alpha)*np.cos(self.beta)])
+                # self.ee = np.array([np.sin(self.lambda_bar)*np.cos(self.beta)-np.cos(self.lambda_bar)*np.sin(self.alpha)*np.sin(self.beta), np.cos(self.alpha)*np.sin(self.beta), np.cos(self.lambda_bar)*np.cos(self.beta)+np.sin(self.lambda_bar)*np.sin(self.alpha)*np.sin(self.beta)])
+                self.en = np.array([-np.sin(self.lambda_bar)*np.sin(self.beta)-np.cos(self.lambda_bar)*np.sin(self.alpha)*np.cos(self.beta), np.cos(self.alpha)*np.cos(self.beta), -np.cos(self.lambda_bar)*np.sin(self.beta) + np.sin(self.lambda_bar)*np.sin(self.alpha)*np.cos(self.beta)])
     
     def ComputePairMoments(self):
-        # self.ComputeEpipolarPlanes()
-
         if len(self.en.shape) == 1:
             self.en = np.array([self.en]).T
 
         self.v0 = self.sdd*(-self.en[0, :]*np.sin(np.array([self.gamma0]*self.en.shape[1]).T-self.g0[2])+self.en[2, :]*np.cos(np.array([self.gamma0]*self.en.shape[1]).T-self.g0[2]))/self.en[1, :]
         self.v1 = self.sdd*(-self.en[0, :]*np.sin(np.array([self.gamma1]*self.en.shape[1]).T-self.g1[2])+self.en[2, :]*np.cos(np.array([self.gamma1]*self.en.shape[1]).T-self.g1[2]))/self.en[1, :]
 
-        dv = self.v_det0[1]-self.v_det0[0]
-        floor_indexes0 = np.floor((self.v0-np.min(self.v_det0))/dv).astype(int)
-        ceil_indexes0 = floor_indexes0 + 1
-        interpolation_weight0 = (self.v0-self.v_det0[floor_indexes0])/dv
-        floor_indexes1 = np.floor((self.v1-np.min(self.v_det1))/dv).astype(int)
-        ceil_indexes1 = floor_indexes1 + 1
-        interpolation_weight1 = (self.v1-self.v_det1[floor_indexes1])/dv
-        fixed_indexes = np.tile(np.arange(self.v0.shape[0]),(self.v0.shape[1],1)).T
-        self.proj_interp0=self.p0.T[fixed_indexes, floor_indexes0]*(1-interpolation_weight0) + self.p0.T[fixed_indexes, ceil_indexes0]*interpolation_weight0
-        self.proj_interp1=self.p1.T[fixed_indexes, floor_indexes1]*(1-interpolation_weight1) + self.p1.T[fixed_indexes, ceil_indexes1]*interpolation_weight1
-        self.proj_interp_var0=self.proj_var0.T[fixed_indexes, floor_indexes0]*(1-interpolation_weight0)**2 + self.proj_var0.T[fixed_indexes, ceil_indexes0]*interpolation_weight0**2
-        self.proj_interp_var1=self.proj_var1.T[fixed_indexes, floor_indexes1]*(1-interpolation_weight1)**2 + self.proj_var1.T[fixed_indexes, ceil_indexes1]*interpolation_weight1**2
+        dv = np.abs(self.v_det0[1]-self.v_det0[0])
+        self.floor_indexes0 = np.floor((self.proj_direction[1, 1]*self.v0-np.min(self.proj_direction[1, 1]*self.v_det0))/dv).astype(int)
+        self.ceil_indexes0 = self.floor_indexes0 + 1
+        interpolation_weight0 = (self.proj_direction[1, 1]*self.v0-self.proj_direction[1, 1]*self.v_det0[self.floor_indexes0])/dv
+        self.floor_indexes1 = np.floor((self.proj_direction[1, 1]*self.v1-np.min(self.proj_direction[1, 1]*self.v_det1))/dv).astype(int)
+        self.ceil_indexes1 = self.floor_indexes1 + 1
+        interpolation_weight1 = (self.proj_direction[1, 1]*self.v1-self.proj_direction[1, 1]*self.v_det1[self.floor_indexes1])/dv
+        fixed_indexes = np.tile(np.arange(self.v0.shape[0]), (self.v0.shape[1], 1)).T
+        self.proj_interp0=self.p0.T[fixed_indexes, self.floor_indexes0]*(1-interpolation_weight0) + self.p0.T[fixed_indexes, self.ceil_indexes0]*interpolation_weight0
+        self.proj_interp1=self.p1.T[fixed_indexes, self.floor_indexes1]*(1-interpolation_weight1) + self.p1.T[fixed_indexes, self.ceil_indexes1]*interpolation_weight1
+        
+        # self.mhr0, self.coeffshr0 = DefriseIntegrationHilbertKernelVec(self.gamma_s0, self.gamma0, self.proj_interp0, self.v0, np.abs(np.cos(self.alpha)), self.sdd, "Rect", 1)
+        # self.mhr1, self.coeffshr1 = DefriseIntegrationHilbertKernelVec(self.gamma_s1, self.gamma1, self.proj_interp1, self.v1, np.abs(np.cos(self.alpha)), self.sdd, "Rect", 1)
 
-        self.gamma_s0 = np.arctan((np.tan(self.g0[2])-self.eb[0]/self.eb[2])/(1+self.eb[0]*np.tan(self.g0[2])/self.eb[2]))
-        self.gamma_s1 = np.arctan((np.tan(self.g1[2])-self.eb[0]/self.eb[2])/(1+self.eb[0]*np.tan(self.g1[2])/self.eb[2]))
+        self.m0, self.coeffs0 = DefriseIntegrationHilbertKernelVec(self.gamma_s0, self.gamma0, self.proj_interp0, self.v0, np.abs(np.cos(self.alpha)), self.sdd, self.kernel, self.bandwidth)
+        self.m1, self.coeffs1 = DefriseIntegrationHilbertKernelVec(self.gamma_s1, self.gamma1, self.proj_interp1, self.v1, np.abs(np.cos(self.alpha)), self.sdd, self.kernel, self.bandwidth)
 
-        self.m0, self.coeffs0 = DefriseIntegrationHilbertKernelVec(self.gamma_s0, self.gamma0, self.proj_interp0, self.v0, self.eb, self.sdd, "Hann", 10)
-        self.m1, self.coeffs1 = DefriseIntegrationHilbertKernelVec(self.gamma_s1, self.gamma1, self.proj_interp1, self.v1, self.eb, self.sdd, "Hann", 10)
+        # self.mk0 = TrapIntegrationAndKingModelSmallInterval(self.proj_interp0, self.gamma0, self.v0, self.gamma_s0, self.eb, self.sdd)
+        # self.mk1 = TrapIntegrationAndKingModelSmallInterval(self.proj_interp1, self.gamma1, self.v1, self.gamma_s1, self.eb, self.sdd)
 
         #compute variance over all moments
-        self.var0, self.var1, self.tot_var0, self.tot_var1 = 0, 0, 0, 0
-        self.var0, self.tot_var0 = ComputeVarianceAllPlanes(self.gamma0, self.proj_direction[1, 1]*self.v0, self.proj_var0, self.proj_interp_var0, interpolation_weight0, floor_indexes0, ceil_indexes0, self.gamma_s0, self.eb, self.sdd, self.coeffs0)
-        self.var1, self.tot_var1 = ComputeVarianceAllPlanes(self.gamma1, self.proj_direction[1, 1]*self.v1, self.proj_var1, self.proj_interp_var1, interpolation_weight1, floor_indexes1, ceil_indexes1, self.gamma_s1, self.eb, self.sdd, self.coeffs1)
+        if self.variance == "True":
+            self.proj_interp_var0=self.proj_var0.T[fixed_indexes, self.floor_indexes0]*(1-interpolation_weight0)**2 + self.proj_var0.T[fixed_indexes, self.ceil_indexes0]*interpolation_weight0**2
+            self.proj_interp_var1=self.proj_var1.T[fixed_indexes, self.floor_indexes1]*(1-interpolation_weight1)**2 + self.proj_var1.T[fixed_indexes, self.ceil_indexes1]*interpolation_weight1**2
+            self.var0, self.tot_var0 = ComputeVarianceAllPlanes(self.gamma0, self.v0, self.proj_var0, self.proj_interp_var0, interpolation_weight0, self.floor_indexes0, self.ceil_indexes0, self.gamma_s0, self.eb, self.sdd, self.coeffs0)
+            self.var1, self.tot_var1 = ComputeVarianceAllPlanes(self.gamma1, self.v1, self.proj_var1, self.proj_interp_var1, interpolation_weight1, self.floor_indexes1, self.ceil_indexes1, self.gamma_s1, self.eb, self.sdd, self.coeffs1)
+        else:
+            self.var0, self.var1, self.tot_var0, self.tot_var1 = 0, 0, 0, 0
+        
